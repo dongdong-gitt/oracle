@@ -20,8 +20,10 @@ import {
   Sun,
   Heart,
   Coins,
-  RotateCcw,
-  Moon
+  Moon,
+  Star,
+  Lightbulb,
+  Users
 } from 'lucide-react';
 import WhitePaper from './WhitePaper';
 import CycleTools from './CycleTools';
@@ -30,14 +32,12 @@ import AIAdvisors from './AIAdvisors';
 import MarketPulse from './MarketPulse';
 import WuXingMatrix from './WuXingMatrix';
 import BaZiPan from './BaZiPan';
-import DailyQian from './DailyQian';
 import DailyGuidance from './DailyGuidance';
 import SoulMate from './SoulMate';
 import LiuYao from './LiuYao';
-import PastLife from './PastLife';
 import DreamInterpreter from './DreamInterpreter';
 
-type TabType = 'dashboard' | 'whitepaper' | 'cycles' | 'membership' | 'advisors' | 'market' | 'matrix' | 'bazi' | 'dailyqian' | 'guidance' | 'soulmate' | 'liuyao' | 'pastlife' | 'dream';
+type TabType = 'dashboard' | 'whitepaper' | 'cycles' | 'membership' | 'advisors' | 'market' | 'matrix' | 'bazi' | 'guidance' | 'soulmate' | 'liuyao' | 'dream';
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -46,11 +46,9 @@ export default function Dashboard() {
   const menuItems = [
     { id: 'dashboard', label: '首页', icon: Compass },
     { id: 'bazi', label: '八字排盘', icon: Calendar },
-    { id: 'dailyqian', label: '每日一签', icon: Sparkles },
     { id: 'guidance', label: '每日指引', icon: Sun },
     { id: 'soulmate', label: '灵魂伴侣', icon: Heart },
     { id: 'liuyao', label: '六爻占卜', icon: Coins },
-    { id: 'pastlife', label: '前世今生', icon: RotateCcw },
     { id: 'dream', label: '解梦·阿梦', icon: Moon },
     { id: 'market', label: '市场脉动', icon: BarChart3 },
     { id: 'matrix', label: '五行矩阵', icon: Target },
@@ -70,56 +68,42 @@ export default function Dashboard() {
   const features = [
     {
       title: '八字排盘',
-      subtitle: 'BaZi Analysis',
+      subtitle: 'BAZI ANALYSIS',
       desc: '智能四柱算法，精准命盘解读',
       icon: Calendar,
       tab: 'bazi'
     },
     {
-      title: '每日一签',
-      subtitle: 'Daily Fortune',
-      desc: '摇出今日运势灵签',
-      icon: Sparkles,
-      tab: 'dailyqian'
-    },
-    {
       title: '每日指引',
-      subtitle: 'Daily Guidance',
+      subtitle: 'DAILY GUIDANCE',
       desc: '今日宜忌与运势详解',
       icon: Sun,
       tab: 'guidance'
     },
     {
       title: '灵魂伴侣',
-      subtitle: 'Soul Mate',
+      subtitle: 'SOUL MATE',
       desc: 'AI描绘缘分速写',
       icon: Heart,
       tab: 'soulmate'
     },
     {
       title: '六爻占卜',
-      subtitle: 'I Ching',
+      subtitle: 'I CHING',
       desc: '易理决策，洞察先机',
       icon: Coins,
       tab: 'liuyao'
     },
     {
-      title: '前世今生',
-      subtitle: 'Past Life',
-      desc: '因果轮回，探索命运轨迹',
-      icon: RotateCcw,
-      tab: 'pastlife'
-    },
-    {
       title: '解梦·阿梦',
-      subtitle: 'Dream Interpreter',
+      subtitle: 'DREAM INTERPRETER',
       desc: '捕梦达人，潜意识翻译官',
       icon: Moon,
       tab: 'dream'
     },
     {
       title: '市场脉动',
-      subtitle: 'Market Pulse',
+      subtitle: 'MARKET PULSE',
       desc: '全球资产与命理周期的实时共振',
       icon: BarChart3,
       tab: 'market'
@@ -130,6 +114,29 @@ export default function Dashboard() {
     { title: '2025乙巳年：火土渐旺，科技与文化迎来爆发期', date: '2025.01.15', tag: '年度' },
     { title: '离火九运投资地图：AI、新能源、数字经济布局指南', date: '2025.01.10', tag: '行业' },
     { title: '财富周期三起三落：如何识别你的高光时刻', date: '2025.01.05', tag: '周期' },
+  ];
+
+  const whyChoose = [
+    {
+      icon: Sparkles,
+      title: 'AI 驱动',
+      desc: '结合大语言模型与传统命理，提供深度个性化分析'
+    },
+    {
+      icon: Lightbulb,
+      title: '周期洞察',
+      desc: '基于三元九运与宏观经济周期，把握时代机遇'
+    },
+    {
+      icon: Users,
+      title: '私密安全',
+      desc: '数据端到端加密，命理信息仅你可见'
+    },
+    {
+      icon: Star,
+      title: '持续进化',
+      desc: '算法持续优化，越用越懂你的命理轨迹'
+    }
   ];
 
   return (
@@ -326,11 +333,45 @@ export default function Dashboard() {
                   })}
                 </motion.div>
 
-                {/* 最新洞察 */}
+                {/* 为什么选择 ORACLE */}
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.6 }}
+                  className="py-8"
+                >
+                  <div className="text-center mb-8">
+                    <h3 className="text-2xl font-semibold text-white mb-2">为什么选择 ORACLE</h3>
+                    <p className="text-white/50">融合千年智慧与现代科技</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {whyChoose.map((item, i) => {
+                      const Icon = item.icon;
+                      return (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.7 + i * 0.1 }}
+                          className="p-6 rounded-2xl text-center"
+                          style={{ background: 'rgba(255,255,255,0.02)', border: '0.5px solid rgba(255,255,255,0.06)' }}
+                        >
+                          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-4">
+                            <Icon className="w-6 h-6 text-white/70" strokeWidth={1.5} />
+                          </div>
+                          <h4 className="text-white font-medium mb-2">{item.title}</h4>
+                          <p className="text-white/40 text-sm leading-relaxed">{item.desc}</p>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+
+                {/* 最新洞察 */}
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.8 }}
                   className="p-6 rounded-2xl"
                   style={{ background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.08)' }}
                 >
@@ -368,11 +409,9 @@ export default function Dashboard() {
             {activeTab === 'membership' && <Membership />}
             {activeTab === 'advisors' && <AIAdvisors />}
             {activeTab === 'bazi' && <BaZiPan />}
-            {activeTab === 'dailyqian' && <DailyQian />}
             {activeTab === 'guidance' && <DailyGuidance />}
             {activeTab === 'soulmate' && <SoulMate />}
             {activeTab === 'liuyao' && <LiuYao />}
-            {activeTab === 'pastlife' && <PastLife />}
             {activeTab === 'dream' && <DreamInterpreter />}
           </AnimatePresence>
         </div>
