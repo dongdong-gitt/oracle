@@ -52,7 +52,7 @@ export default function CycleTools() {
 
       {/* 工具内容 */}
       <div className="p-6 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
-        {activeTool === 'kline' && <LifeKLine />}
+        {activeTool === 'kline' && <LifeKLine lang="zh" period="1D" />}
         {activeTool === 'liunian' && (
           <div className="text-center py-16">
             <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-4" style={{ background: 'rgba(255,255,255,0.05)' }}>

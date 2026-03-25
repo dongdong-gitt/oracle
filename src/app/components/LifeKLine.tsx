@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Maximize2, Settings } from 'lucide-react';
+import { Maximize2, Settings } from 'lucide-react';
 import { Language, t } from './Dashboard';
 
 interface KLineData {

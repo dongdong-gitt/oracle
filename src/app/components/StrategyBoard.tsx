@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, AlertTriangle, Shield, Zap, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Zap, Target } from 'lucide-react';
 import { Language, t } from './Dashboard';
 
 interface StrategyBoardProps {

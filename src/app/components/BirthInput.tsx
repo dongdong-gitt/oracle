@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, ChevronRight, Calendar, Clock, MapPin, User } from 'lucide-react';
-import { Language, t } from './Dashboard';
+import { Language } from './Dashboard';
 
 interface BirthInputProps {
   onSubmit: () => void;
@@ -222,6 +222,14 @@ export default function BirthInput({ onSubmit, lang }: BirthInputProps) {
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Skip Button */}
+        <button
+          onClick={onSubmit}
+          className="w-full mt-4 py-3 rounded-xl border border-[#2b3139] text-gray-400 hover:text-white hover:border-gray-600 transition-colors"
+        >
+          {lang === 'zh' ? '跳过，使用演示数据' : 'Skip, use demo data'}
+        </button>
 
         {/* Info */}
         <p className="text-center text-xs text-gray-500 mt-6">
