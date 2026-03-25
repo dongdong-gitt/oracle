@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Moon, Sparkles, Send } from 'lucide-react';
+import { Moon, Send } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';

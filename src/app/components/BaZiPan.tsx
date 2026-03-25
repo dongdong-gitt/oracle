@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, MapPin, User, Sparkles, ChevronRight } from 'lucide-react';
+import { Calendar, MapPin, User, Sparkles } from 'lucide-react';
 
 export default function BaZiPan() {
   const [formData, setFormData] = useState({

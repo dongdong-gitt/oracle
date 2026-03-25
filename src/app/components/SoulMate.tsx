@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, Sparkles, Send } from 'lucide-react';
+import { Heart, Sparkles } from 'lucide-react';
 
 export default function SoulMate() {
   const [formData, setFormData] = useState({
