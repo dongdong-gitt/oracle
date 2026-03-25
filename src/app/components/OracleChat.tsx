@@ -1,32 +1,69 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Send, Sparkles } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-}
+import { motion } from 'framer-motion';
+import { X, Send, Sparkles, User } from 'lucide-react';
+import { Language, t } from './Dashboard';
 
 interface OracleChatProps {
-  mingPanData: {
-    year: string;
-    month: string;
-    day: string;
-    hour: string;
-  };
+  onClose: () => void;
+  lang: Language;
 }
 
-export default function OracleChat({ mingPanData }: OracleChatProps) {
+interface Message {
+  id: string;
+  role: 'user' | 'oracle';
+  content: string;
+  timestamp: Date;
+}
+
+const quickQuestions = {
+  zh: [
+    '今晚有个德扑高端局，能去吗？',
+    '明天适合签约吗？',
+    '最近财运如何？',
+    '适合投资BTC吗？',
+    '感情运势怎么样？'
+  ],
+  en: [
+    'Should I join the poker game tonight?',
+    'Is tomorrow good for signing contracts?',
+    'How is my wealth luck recently?',
+    'Is it good to invest in BTC?',
+    'How is my love luck?'
+  ]
+};
+
+const mockResponses = {
+  zh: [
+    '根据今晚戌时运势，偏财星旺，但需防冲动。建议：可以参加，但设置止损线，见好就收。',
+    '明日辰时，印星当令，适合文书签约。但需注意细节条款，避免口头承诺。',
+    '近期财星透干，正财偏财皆旺。适合稳健投资，避免高杠杆操作。',
+    '当前处于火运，BTC属金，火克金。短期波动大，建议定投而非梭哈。',
+    '桃花星动于东南，近期社交运佳。但需分辨正缘与烂桃花，避免冲动决策。'
+  ],
+  en: [
+    'Based on Xu hour luck tonight,偏财星旺 but watch for impulsiveness. Advice: Join but set stop-loss and take profits early.',
+    'Tomorrow Chen hour,印星 dominant, suitable for contracts. But pay attention to details, avoid verbal promises.',
+    'Recently Wealth Star visible, both正财偏财 strong. Suitable for steady investing, avoid high leverage.',
+    'Currently in Fire cycle, BTC is Metal, Fire克制Metal. High volatility short-term, suggest DCA instead of all-in.',
+    'Peach Blossom Star moving Southeast, recent social luck good. But distinguish true love from bad romance, avoid impulsive decisions.'
+  ]
+};
+
+export default function OracleChat({ onClose, lang }: OracleChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
-      role: 'assistant',
-      content: `你好，我是Oracle。我已为你解析命盘：${mingPanData.year} ${mingPanData.month} ${mingPanData.day} ${mingPanData.hour}。有什么想深入了解的吗？`,
-    },
+      id: 'welcome',
+      role: 'oracle',
+      content: lang === 'zh' 
+        ? '你好，我是你的神谕顾问。基于你的生辰八字和当前运势，我可以为你提供决策建议。有什么想问的吗？'
+        : 'Hello, I am your Oracle Advisor. Based on your birth chart and current luck cycle, I can provide decision advice. What would you like to know?',
+      timestamp: new Date()
+    }
   ]);
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -37,100 +74,147 @@ export default function OracleChat({ mingPanData }: OracleChatProps) {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleSend = async (content: string) => {
+    if (!content.trim()) return;
 
-    const userMessage = input.trim();
+    // Add user message
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, userMessage]);
     setInput('');
-    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
-    setIsLoading(true);
+    setIsTyping(true);
 
-    // TODO: 接入AI API
-    // 模拟AI回复
+    // Simulate AI response
     setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: '这是AI解读的占位回复。接入八字API后，这里将显示真实的命盘分析和运势解读。',
-        },
-      ]);
-      setIsLoading(false);
+      const randomResponse = mockResponses[lang][Math.floor(Math.random() * mockResponses[lang].length)];
+      const oracleMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'oracle',
+        content: randomResponse,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, oracleMessage]);
+      setIsTyping(false);
     }, 1500);
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, delay: 0.4 }}
-      className="glass-card rounded-3xl p-6 flex flex-col h-[500px]"
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 20, scale: 0.95 }}
+      className="fixed bottom-24 right-6 w-[400px] max-w-[calc(100vw-48px)] bg-[#1e2329] rounded-2xl border border-[#2b3139] shadow-2xl z-50 overflow-hidden"
     >
-      <div className="flex items-center gap-3 mb-4 pb-4 border-b border-white/10">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-          <Sparkles className="w-5 h-5 text-white" />
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#2b3139] bg-[#2b3139]/50">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="font-semibold text-white">{t('oracle', lang)}</div>
+            <div className="text-xs text-[#0ecb81] flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-[#0ecb81]"></span>
+              {lang === 'zh' ? '在线' : 'Online'}
+            </div>
+          </div>
         </div>
-        <div>
-          <h3 className="font-bold">Oracle AI</h3>
-          <p className="text-xs text-gray-400">深度命盘解读</p>
-        </div>
+        <button 
+          onClick={onClose}
+          className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+        >
+          <X className="w-5 h-5 text-gray-400" />
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2">
-        {messages.map((message, index) => (
-          <motion.div
-            key={index}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`flex ${
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            }`}
+      {/* Messages */}
+      <div className="h-[400px] overflow-y-auto p-4 space-y-4">
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
           >
-            <div
-              className={`max-w-[80%] px-4 py-3 rounded-2xl ${
-                message.role === 'user'
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white'
-                  : 'bg-white/10 text-gray-200'
-              }`}
-            >
-              {message.content}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+              msg.role === 'oracle' 
+                ? 'bg-gradient-to-br from-amber-500 to-orange-500' 
+                : 'bg-[#2b3139]'
+            }`}>
+              {msg.role === 'oracle' ? (
+                <Sparkles className="w-4 h-4 text-white" />
+              ) : (
+                <User className="w-4 h-4 text-gray-400" />
+              )}
             </div>
-          </motion.div>
+            <div className={`max-w-[75%] p-3 rounded-2xl text-sm leading-relaxed ${
+              msg.role === 'oracle'
+                ? 'bg-[#2b3139] text-gray-200 rounded-tl-none'
+                : 'bg-amber-500 text-black rounded-tr-none'
+            }`}>
+              {msg.content}
+            </div>
+          </div>
         ))}
-        {isLoading && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex justify-start"
-          >
-            <div className="bg-white/10 px-4 py-3 rounded-2xl flex items-center gap-2">
-              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" />
-              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-100" />
-              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-200" />
+
+        {isTyping && (
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
-          </motion.div>
+            <div className="bg-[#2b3139] px-4 py-3 rounded-2xl rounded-tl-none">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"></span>
+                <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0.1s' }}></span>
+                <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+              </div>
+            </div>
+          </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="询问你的运势、事业、感情..."
-          className="flex-1 px-4 py-3 rounded-xl"
-        />
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleSend}
-          disabled={isLoading}
-          className="px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white disabled:opacity-50"
-        >
-          <Send className="w-5 h-5" />
-        </motion.button>
+      {/* Quick Questions */}
+      {messages.length < 3 && (
+        <div className="px-4 pb-2">
+          <div className="text-xs text-gray-500 mb-2">
+            {lang === 'zh' ? '快速提问' : 'Quick Questions'}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {quickQuestions[lang].slice(0, 3).map((q, i) => (
+              <button
+                key={i}
+                onClick={() => handleSend(q)}
+                className="px-3 py-1.5 rounded-full bg-[#2b3139] hover:bg-[#3a4249] text-xs text-gray-300 transition-colors"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Input */}
+      <div className="p-4 border-t border-[#2b3139]">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSend(input)}
+            placeholder={t('askOracle', lang)}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-[#2b3139] text-white placeholder:text-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+          />
+          <button
+            onClick={() => handleSend(input)}
+            disabled={!input.trim() || isTyping}
+            className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-black transition-colors"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </motion.div>
   );
