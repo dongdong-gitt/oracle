@@ -48,7 +48,7 @@ export default function Dashboard() {
     { id: 'bazi', label: '八字排盘', icon: Calendar },
     { id: 'guidance', label: '每日指引', icon: Sun },
     { id: 'soulmate', label: '灵魂伴侣', icon: Heart },
-    { id: 'liuyao', label: '六爻占卜', icon: Coins },
+    { id: 'liuyao', label: '六爻奇门', icon: Coins },
     { id: 'dream', label: '解梦·阿梦', icon: Moon },
     { id: 'market', label: '市场脉动', icon: BarChart3 },
     { id: 'matrix', label: '五行矩阵', icon: Target },
@@ -88,9 +88,9 @@ export default function Dashboard() {
       tab: 'soulmate'
     },
     {
-      title: '六爻占卜',
-      subtitle: 'I CHING',
-      desc: '易理决策，洞察先机',
+      title: '六爻奇门',
+      subtitle: 'I CHING & QIMEN',
+      desc: '六爻断事，奇门遁甲择时择方',
       icon: Coins,
       tab: 'liuyao'
     },
