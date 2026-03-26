@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, MapPin, Globe, Loader2 } from 'lucide-react';
+import { Sparkles, MapPin, Globe } from 'lucide-react';
 import { Language } from './Dashboard';
 import { useUser } from '../context/UserContext';
 import { CHINA_REGIONS, COUNTRIES } from '../lib/chinaRegions';
@@ -99,47 +99,44 @@ export default function BirthInput({ onSubmit }: BirthInputProps) {
       totalDelay += ANALYSIS_STEPS[i].duration;
     }
 
-    // 同时进行真实计算（调用K线API获取完整分析）
-    try {
-      const [year, month, day] = formData.birthDate.split('-').map(Number);
-      const [hour] = formData.birthTime.split(':').map(Number);
-      
-      // 调用K线API，使用八字量化算法生成运势数据
-      const response = await fetch('/api/kline', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          year, 
-          month, 
-          day, 
-          hour, 
-          gender: formData.gender,
-          period: '1y' // 默认显示1年（12根月K线）
-        }),
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          // 保存完整的分析结果（包含八字、AI解读、K线数据）
-          setBaziResult({
-            bazi: result.data.bazi,
-            detail: result.data.detail,
-            daYun: result.data.daYun,
-            liuNian: result.data.liuNian,
-            aiAnalysis: result.data.aiAnalysis,
-            kline: result.data.kline,
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Failed to calculate BaZi:', error);
-    }
-
-    // 所有动画完成后跳转
+    // 所有动画完成后跳转（不等待API）
     setTimeout(() => {
       onSubmit();
     }, totalDelay + 500);
+
+    // 后台调用API获取数据（不阻塞跳转）
+    const [year, month, day] = formData.birthDate.split('-').map(Number);
+    const [hour] = formData.birthTime.split(':').map(Number);
+    
+    fetch('/api/kline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        name: formData.name,
+        year, 
+        month, 
+        day, 
+        hour, 
+        gender: formData.gender,
+        period: '1y'
+      }),
+    })
+    .then(response => response.json())
+    .then(result => {
+      if (result.success) {
+        setBaziResult({
+          bazi: result.data.bazi,
+          detail: result.data.detail,
+          daYun: result.data.daYun,
+          liuNian: result.data.liuNian,
+          aiAnalysis: result.data.aiAnalysis,
+          kline: result.data.kline,
+        });
+      }
+    })
+    .catch(error => {
+      console.error('API call failed:', error);
+    });
   };
 
   const isFormValid = () => {
@@ -237,9 +234,14 @@ export default function BirthInput({ onSubmit }: BirthInputProps) {
                 className="w-2 h-2 rounded-full"
                 animate={{
                   backgroundColor: index <= currentStep ? '#00D4FF' : 'rgba(255,255,255,0.2)',
-                  scale: index === currentStep ? 1.5 : 1,
+                  scale: index === currentStep ? [1.2, 1.8, 1.2] : 1,
+                  y: index === currentStep ? [0, -4, 0] : 0,
                 }}
-                transition={{ duration: 0.3 }}
+                transition={{ 
+                  duration: 0.6, 
+                  repeat: index === currentStep ? Infinity : 0,
+                  ease: "easeInOut"
+                }}
               />
             ))}
           </div>
@@ -250,7 +252,7 @@ export default function BirthInput({ onSubmit }: BirthInputProps) {
             animate={{ opacity: [0.3, 0.6, 0.3] }}
             transition={{ duration: 2, repeat: Infinity }}
           >
-            ORACLE · 东方智慧未来趋势研究院
+            ORACLE · 未来趋势研究院
           </motion.p>
         </div>
       </div>

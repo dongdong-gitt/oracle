@@ -49,6 +49,16 @@ interface BaziPanProps {
         天干?: string[];
         地支?: string[];
       };
+      真太阳时?: {
+        日期: string;
+        时间: string;
+      };
+      出生节气?: {
+        节气名: string;
+        节气日期: string;
+        距离天数: number;
+        描述: string;
+      } | null;
     };
     aiAnalysis?: {
       mingZhu: string;
@@ -123,12 +133,12 @@ export default function BaZiPan({ data, birthData }: BaziPanProps) {
       <div className="bg-gradient-to-r from-[#1a1a2e] to-[#16213e] p-6 border-b border-white/10">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-start justify-between">
-            <div>
+            <div className="flex-1">
               <h1 className="text-2xl font-bold mb-2 flex items-center gap-2">
                 <User className="w-6 h-6 text-cyan-400" />
                 {birthData.name || '命主'} 的命盘
               </h1>
-              <div className="flex flex-wrap gap-4 text-sm text-gray-400">
+              <div className="flex flex-wrap gap-4 text-sm text-gray-400 mb-3">
                 <span className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
                   {birthData.gender === 'male' ? '乾造' : '坤造'} · {birthData.birthDate}
@@ -141,6 +151,21 @@ export default function BaZiPan({ data, birthData }: BaziPanProps) {
                   <MapPin className="w-4 h-4" />
                   {birthData.birthPlace}
                 </span>
+              </div>
+              {/* 真太阳时和节气信息 */}
+              <div className="flex flex-wrap gap-4 text-xs">
+                {detail.真太阳时 && (
+                  <span className="flex items-center gap-1 text-cyan-400/80 bg-cyan-400/10 px-2 py-1 rounded">
+                    <Clock className="w-3 h-3" />
+                    真太阳时: {detail.真太阳时.日期} {detail.真太阳时.时间}
+                  </span>
+                )}
+                {detail.出生节气 && (
+                  <span className="flex items-center gap-1 text-amber-400/80 bg-amber-400/10 px-2 py-1 rounded">
+                    <Sparkles className="w-3 h-3" />
+                    {detail.出生节气.描述}
+                  </span>
+                )}
               </div>
             </div>
             <div className="text-right">
@@ -518,8 +543,12 @@ export default function BaZiPan({ data, birthData }: BaziPanProps) {
               
               {aiAnalysis.advice && (
                 <div className="p-4 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
-                  <h3 className="text-cyan-400 font-semibold mb-2">综合建议</h3>
-                  <p className="text-gray-300 leading-relaxed">{aiAnalysis.advice}</p>
+                  <h3 className="text-cyan-400 font-semibold mb-3">综合建议</h3>
+                  <div className="space-y-2">
+                    {aiAnalysis.advice.split('\\n').map((line, i) => (
+                      <p key={i} className="text-gray-300 leading-relaxed">{line}</p>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

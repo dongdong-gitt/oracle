@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
 
 // 测试 GET 请求
 export async function GET() {

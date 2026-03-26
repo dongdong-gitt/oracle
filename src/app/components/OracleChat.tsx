@@ -4,10 +4,12 @@ import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Send, Sparkles, User } from 'lucide-react';
 import { Language, t } from './Dashboard';
+import { useUser } from '../context/UserContext';
 
 interface OracleChatProps {
   onClose: () => void;
   lang: Language;
+  initialQuery?: string;
 }
 
 interface Message {
@@ -34,37 +36,22 @@ const quickQuestions = {
   ]
 };
 
-const mockResponses = {
-  zh: [
-    '根据今晚戌时运势，偏财星旺，但需防冲动。建议：可以参加，但设置止损线，见好就收。',
-    '明日辰时，印星当令，适合文书签约。但需注意细节条款，避免口头承诺。',
-    '近期财星透干，正财偏财皆旺。适合稳健投资，避免高杠杆操作。',
-    '当前处于火运，BTC属金，火克金。短期波动大，建议定投而非梭哈。',
-    '桃花星动于东南，近期社交运佳。但需分辨正缘与烂桃花，避免冲动决策。'
-  ],
-  en: [
-    'Based on Xu hour luck tonight,偏财星旺 but watch for impulsiveness. Advice: Join but set stop-loss and take profits early.',
-    'Tomorrow Chen hour,印星 dominant, suitable for contracts. But pay attention to details, avoid verbal promises.',
-    'Recently Wealth Star visible, both正财偏财 strong. Suitable for steady investing, avoid high leverage.',
-    'Currently in Fire cycle, BTC is Metal, Fire克制Metal. High volatility short-term, suggest DCA instead of all-in.',
-    'Peach Blossom Star moving Southeast, recent social luck good. But distinguish true love from bad romance, avoid impulsive decisions.'
-  ]
-};
-
-export default function OracleChat({ onClose, lang }: OracleChatProps) {
+export default function OracleChat({ onClose, lang, initialQuery }: OracleChatProps) {
+  const { birthData, baziResult } = useUser();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       role: 'oracle',
-      content: lang === 'zh' 
+      content: lang === 'zh'
         ? '你好，我是你的神谕顾问。基于你的生辰八字和当前运势，我可以为你提供决策建议。有什么想问的吗？'
         : 'Hello, I am your Oracle Advisor. Based on your birth chart and current luck cycle, I can provide decision advice. What would you like to know?',
       timestamp: new Date()
     }
   ]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(initialQuery || '');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const hasSentInitialQuery = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -74,32 +61,79 @@ export default function OracleChat({ onClose, lang }: OracleChatProps) {
     scrollToBottom();
   }, [messages]);
 
+  // Send initial query if provided
+  useEffect(() => {
+    if (initialQuery && !hasSentInitialQuery.current) {
+      hasSentInitialQuery.current = true;
+      handleSend(initialQuery);
+    }
+  }, [initialQuery]);
+
   const handleSend = async (content: string) => {
     if (!content.trim()) return;
 
-    // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content,
       timestamp: new Date()
     };
-    setMessages(prev => [...prev, userMessage]);
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
     setInput('');
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const randomResponse = mockResponses[lang][Math.floor(Math.random() * mockResponses[lang].length)];
+    try {
+      const response = await fetch('/api/oracle/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lang,
+          messages: nextMessages.map(m => ({
+            role: m.role,
+            content: m.content,
+          })),
+          context: {
+            birthData,
+            baziResult,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        const oracleMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'oracle',
+          content: lang === 'zh'
+            ? `解析失败：${err?.error || '请稍后再试'}`
+            : `Failed to respond: ${err?.error || 'Please try again later.'}`,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, oracleMessage]);
+        setIsTyping(false);
+        return;
+      }
+
+      const data = await response.json();
       const oracleMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'oracle',
-        content: randomResponse,
+        content: data?.reply || (lang === 'zh' ? '我暂时没想好怎么回答。' : "I don't have an answer right now."),
         timestamp: new Date()
       };
       setMessages(prev => [...prev, oracleMessage]);
       setIsTyping(false);
-    }, 1500);
+    } catch (_e) {
+      const oracleMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'oracle',
+        content: lang === 'zh' ? '网络异常，稍后再试。' : 'Network error, please try again later.',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, oracleMessage]);
+      setIsTyping(false);
+    }
   };
 
   return (

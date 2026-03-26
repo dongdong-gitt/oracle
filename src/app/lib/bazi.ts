@@ -4,7 +4,7 @@
  */
 
 import { ChildLimit, DefaultEightCharProvider, Gender, HeavenStem, LunarHour, LunarSect2EightCharProvider, SolarTime } from 'tyme4ts';
-import { calculateRelation, getShen } from 'cantian-tymext';
+// import { calculateRelation, getShen } from 'cantian-tymext'; // 暂时禁用，服务器端运行有问题
 
 const eightCharProvider1 = new DefaultEightCharProvider();
 const eightCharProvider2 = new LunarSect2EightCharProvider();
@@ -98,13 +98,12 @@ const buildSixtyCycleObject = (sixtyCycle: SixtyCycle, me?: HeavenStem): PillarD
  * 构建神煞对象
  */
 const buildGodsObject = (eightChar: any, gender: Gender) => {
-  const genderNum = gender === Gender.MAN ? 1 : 0;
-  const gods = getShen(eightChar.toString(), genderNum);
+  // 暂时返回空数组，cantian-tymext 服务器端有问题
   return {
-    年柱: gods[0] || [],
-    月柱: gods[1] || [],
-    日柱: gods[2] || [],
-    时柱: gods[3] || [],
+    年柱: [],
+    月柱: [],
+    日柱: [],
+    时柱: [],
   };
 };
 
@@ -294,6 +293,16 @@ export function getBaziDetail(
   const dayPillar = buildSixtyCycleObject(eightChar.getDay());
   const hourPillar = buildSixtyCycleObject(eightChar.getHour(), me);
 
+  // 获取节气信息
+  const solarDay = solarTime.getSolarDay();
+  const term = solarDay.getTerm();
+  const prevTerm = term?.getPrevious()?.getSolarDay();
+  const nextTerm = term?.getNext()?.getSolarDay();
+  
+  // 计算距离节气的天数
+  const daysSincePrevTerm = prevTerm ? solarDay.subtract(prevTerm) : 0;
+  const daysToNextTerm = nextTerm ? nextTerm.subtract(solarDay) : 0;
+
   return {
     性别: gender === 'male' ? '男' : '女',
     阳历: solarTime.toString(),
@@ -310,11 +319,20 @@ export function getBaziDetail(
     身宫: eightChar.getBodySign().toString(),
     神煞: buildGodsObject(eightChar, genderEnum),
     大运: buildDecadeFortuneObject(solarTime, genderEnum, me),
-    刑冲合会: calculateRelation({
-      年: { 天干: eightChar.getYear().getHeavenStem().toString(), 地支: eightChar.getYear().getEarthBranch().toString() },
-      月: { 天干: eightChar.getMonth().getHeavenStem().toString(), 地支: eightChar.getMonth().getEarthBranch().toString() },
-      日: { 天干: eightChar.getDay().getHeavenStem().toString(), 地支: eightChar.getDay().getEarthBranch().toString() },
-      时: { 天干: eightChar.getHour().getHeavenStem().toString(), 地支: eightChar.getHour().getEarthBranch().toString() },
-    }),
+    刑冲合会: {
+      天干: [],
+      地支: [],
+    },
+    // 真太阳时和节气信息
+    真太阳时: {
+      日期: `${solarDay.getYear()}年${solarDay.getMonth()}月${solarDay.getDay()}日`,
+      时间: `${solarTime.getHour()}:${solarTime.getMinute().toString().padStart(2, '0')}`,
+    },
+    出生节气: term ? {
+      节气名: term.toString(),
+      节气日期: `${term.getSolarDay().getYear()}-${term.getSolarDay().getMonth()}-${term.getSolarDay().getDay()}`,
+      距离天数: daysSincePrevTerm,
+      描述: daysSincePrevTerm === 0 ? `出生于${term}` : `出生于${term}后${daysSincePrevTerm}天`,
+    } : null,
   };
 }
