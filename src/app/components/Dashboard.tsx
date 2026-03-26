@@ -299,16 +299,56 @@ export default function Dashboard() {
             <motion.aside initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }} className="fixed left-0 top-16 bottom-0 w-[280px] bg-[#0D0D0D]/95 backdrop-blur-xl border-r border-white/5 z-50 overflow-y-auto">
               <div className="p-5">
                 <div className="p-4 rounded-2xl bg-[#1A1B1E] border border-white/5 mb-4">
-                  <div className="flex items-center gap-3 mb-3">
+                  <div className="flex items-center gap-3 mb-4">
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-neon-blue to-neon-purple flex items-center justify-center text-lg font-bold">冬</div>
                     <div>
                       <div className="font-semibold">王冬</div>
-                      <div className="text-xs text-white/40">Pro Member</div>
+                      <div className="text-xs text-white/40">庚金日主 · 伤官格</div>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-white/40">{t('lifeNetWorth', lang)}</span>
-                    <span className="font-mono text-neon-blue">88.5</span>
+                  
+                  {/* 今日运势评分 */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-white/40">今日运势</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-0.5">
+                          {[1,2,3,4,5].map(i => (
+                            <div key={i} className={`w-2 h-2 rounded-full ${i <= 4 ? 'bg-amber-400' : 'bg-white/20'}`} />
+                          ))}
+                        </div>
+                        <span className="font-mono text-amber-400">4.2</span>
+                      </div>
+                    </div>
+                    
+                    {/* 五行能量条 */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-white/30 w-8">金</span>
+                        <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div className="w-[18%] h-full bg-amber-400 rounded-full" />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-white/30 w-8">木</span>
+                        <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div className="w-[24%] h-full bg-green-400 rounded-full" />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-white/30 w-8">水</span>
+                        <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div className="w-[24%] h-full bg-blue-400 rounded-full" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-2 border-t border-white/5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-white/40">喜用神</span>
+                        <span className="text-amber-400">土、金</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

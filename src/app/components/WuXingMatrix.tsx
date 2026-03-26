@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useUser } from '../context/UserContext';
-import { Sparkles, TrendingUp, Briefcase, Compass, Palette, MapPin, Hash } from 'lucide-react';
+import { Sparkles, TrendingUp, TrendingDown, Minus, Activity, Zap, Shield, Target } from 'lucide-react';
 
 interface WuXingData {
   金: number;
@@ -22,13 +22,24 @@ interface WuXingAnalysis {
   幸运方位: string[];
   幸运数字: string[];
   适合行业: string[];
+  开运建议: string[];
 }
+
+// 五行配置
+const wuxingConfig = {
+  金: { color: '#fbbf24', bg: 'bg-amber-400', text: 'text-amber-400', pos: { x: 85, y: 35 }, label: '劫财比肩', icon: '⚜️' },
+  木: { color: '#4ade80', bg: 'bg-green-400', text: 'text-green-400', pos: { x: 15, y: 35 }, label: '正财偏财', icon: '🌿' },
+  水: { color: '#60a5fa', bg: 'bg-blue-400', text: 'text-blue-400', pos: { x: 50, y: 85 }, label: '食神伤官', icon: '💧' },
+  火: { color: '#f87171', bg: 'bg-red-400', text: 'text-red-400', pos: { x: 50, y: 15 }, label: '七杀', icon: '🔥' },
+  土: { color: '#fbbf24', bg: 'bg-yellow-400', text: 'text-yellow-400', pos: { x: 75, y: 65 }, label: '偏印', icon: '⛰️', isRizhu: true },
+};
 
 export default function WuXingMatrix() {
   const { baziResult } = useUser();
-  const [wuxingData, setWuxingData] = useState<WuXingData>({ 金: 20, 木: 20, 土: 20, 火: 20, 水: 20 });
+  const [wuxingData, setWuxingData] = useState<WuXingData>({ 金: 18, 木: 24, 水: 24, 火: 18, 土: 18 });
   const [analysis, setAnalysis] = useState<WuXingAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
+  const [activeElement, setActiveElement] = useState<string | null>(null);
 
   useEffect(() => {
     if (baziResult?.detail) {
@@ -71,35 +82,44 @@ export default function WuXingMatrix() {
     setLoading(false);
   };
 
-  const elements = [
-    { name: '金', color: '#fbbf24', bgColor: 'bg-amber-400', textColor: 'text-amber-400', gradient: 'from-amber-400 to-yellow-500', icon: '⚜️' },
-    { name: '木', color: '#4ade80', bgColor: 'bg-green-400', textColor: 'text-green-400', gradient: 'from-green-400 to-emerald-500', icon: '🌿' },
-    { name: '水', color: '#60a5fa', bgColor: 'bg-blue-400', textColor: 'text-blue-400', gradient: 'from-blue-400 to-cyan-500', icon: '💧' },
-    { name: '火', color: '#f87171', bgColor: 'bg-red-400', textColor: 'text-red-400', gradient: 'from-red-400 to-orange-500', icon: '🔥' },
-    { name: '土', color: '#fbbf24', bgColor: 'bg-yellow-400', textColor: 'text-yellow-400', gradient: 'from-yellow-400 to-amber-500', icon: '⛰️' },
+  // 计算生克关系
+  const shengRelations = [
+    { from: '木', to: '火', path: 'M 80 140 Q 120 80 200 60' },
+    { from: '火', to: '土', path: 'M 200 60 Q 280 80 320 140' },
+    { from: '土', to: '金', path: 'M 320 180 Q 340 200 320 220' },
+    { from: '金', to: '水', path: 'M 320 260 Q 280 320 200 340' },
+    { from: '水', to: '木', path: 'M 200 340 Q 120 320 80 260' },
   ];
 
-  const getElementValue = (name: string) => wuxingData[name as keyof WuXingData] || 0;
+  const keRelations = [
+    { from: '金', to: '木', x1: 340, y1: 200, x2: 60, y2: 200 },
+    { from: '木', to: '土', x1: 80, y1: 260, x2: 300, y2: 260 },
+    { from: '土', to: '水', x1: 300, y1: 280, x2: 200, y2: 320 },
+    { from: '水', to: '火', x1: 200, y1: 320, x2: 200, y2: 80 },
+    { from: '火', to: '金', x1: 200, y1: 80, x2: 340, y2: 180 },
+  ];
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-6 p-4 max-w-4xl mx-auto"
+      className="space-y-8 p-6 max-w-6xl mx-auto"
     >
       {/* 标题 */}
-      <div className="text-center py-6">
+      <div className="text-center py-8">
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="inline-flex items-center gap-3 mb-4"
+          className="inline-flex items-center gap-4 mb-4"
         >
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-            <Sparkles className="w-6 h-6 text-white" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 flex items-center justify-center shadow-lg shadow-orange-500/30">
+            <Sparkles className="w-7 h-7 text-white" />
           </div>
-          <h2 className="text-3xl font-bold text-white">五行分析</h2>
+          <div>
+            <h2 className="text-3xl font-bold text-white">五行命盘</h2>
+            <p className="text-white/50 text-sm mt-1">能量分布 · 生克关系 · 命理建议</p>
+          </div>
         </motion.div>
-        <p className="text-white/50">基于八字命盘的五行能量分布与命理建议</p>
       </div>
 
       {/* 格局显示 */}
@@ -107,228 +127,208 @@ export default function WuXingMatrix() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-3xl p-8 border border-amber-500/20"
+          className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 rounded-3xl p-8 border border-amber-500/20"
         >
-          <div className="text-center">
-            <motion.h3 
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              className="text-3xl font-bold text-amber-400 mb-3"
-            >
-              【{analysis.pattern}】
-            </motion.h3>
-            <p className="text-white/70 text-lg max-w-2xl mx-auto leading-relaxed">{analysis.patternDesc}</p>
-          </div>
-          
-          <div className="flex items-center justify-center gap-4 mt-6">
-            <span className="px-4 py-2 bg-white/10 rounded-full text-white/80">【{analysis.strength}】</span>
-            <span className="px-4 py-2 bg-amber-500/20 rounded-full text-amber-400 text-sm">已校正</span>
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="text-center md:text-left">
+              <h3 className="text-2xl font-bold text-amber-400 mb-2">【{analysis.pattern}】</h3>
+              <p className="text-white/70 max-w-xl">{analysis.patternDesc}</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="px-5 py-2 bg-white/10 rounded-full">
+                <span className="text-white/60 text-sm">日主强弱</span>
+                <span className="text-white font-bold ml-2">{analysis.strength}</span>
+              </div>
+              <div className="px-5 py-2 bg-amber-500/20 rounded-full">
+                <span className="text-amber-400 font-bold">喜用{analysis.喜用神.join('、')}</span>
+              </div>
+            </div>
           </div>
         </motion.div>
       )}
 
-      {/* 五行圆形图 - 大气版 */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="relative w-full max-w-lg mx-auto aspect-square"
-      >
-        {/* 外圈装饰 */}
-        <div className="absolute inset-0 rounded-full border border-white/5" />
-        <div className="absolute inset-4 rounded-full border border-white/5" />
-        
-        {/* 生克关系线 */}
-        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 400">
-          <defs>
-            <marker id="arrow-sheng" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-              <polygon points="0 0, 10 3, 0 6" fill="rgba(74,222,128,0.6)" />
-            </marker>
-            <marker id="arrow-ke" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-              <polygon points="0 0, 10 3, 0 6" fill="rgba(248,113,113,0.6)" />
-            </marker>
-          </defs>
-          
-          {/* 相生线 - 实线绿色 */}
-          <path d="M 120 200 Q 140 120 200 100" fill="none" stroke="rgba(74,222,128,0.5)" strokeWidth="2" markerEnd="url(#arrow-sheng)" />
-          <path d="M 200 100 Q 280 120 300 160" fill="none" stroke="rgba(74,222,128,0.5)" strokeWidth="2" markerEnd="url(#arrow-sheng)" />
-          <path d="M 300 160 Q 310 200 300 240" fill="none" stroke="rgba(74,222,128,0.5)" strokeWidth="2" markerEnd="url(#arrow-sheng)" />
-          <path d="M 300 240 Q 280 300 200 320" fill="none" stroke="rgba(74,222,128,0.5)" strokeWidth="2" markerEnd="url(#arrow-sheng)" />
-          <path d="M 200 320 Q 120 300 100 240" fill="none" stroke="rgba(74,222,128,0.5)" strokeWidth="2" markerEnd="url(#arrow-sheng)" />
-          
-          {/* 相克线 - 虚线红色 */}
-          <line x1="280" y1="200" x2="120" y2="200" stroke="rgba(248,113,113,0.3)" strokeWidth="1.5" strokeDasharray="5 5" />
-          <line x1="120" y1="200" x2="280" y2="200" stroke="rgba(248,113,113,0.3)" strokeWidth="1.5" strokeDasharray="5 5" />
-          <line x1="200" y1="320" x2="200" y2="100" stroke="rgba(248,113,113,0.3)" strokeWidth="1.5" strokeDasharray="5 5" />
-        </svg>
-
-        {/* 火 - 顶部 */}
-        <motion.div 
-          className="absolute top-8 left-1/2 -translate-x-1/2 flex flex-col items-center"
-          whileHover={{ scale: 1.05 }}
-        >
-          <div className="text-red-400/70 text-sm mb-2 font-medium tracking-wider">七杀</div>
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-400/30 to-red-500/10 border-2 border-red-400/60 flex flex-col items-center justify-center shadow-lg shadow-red-500/20">
-            <span className="text-red-400 text-2xl font-bold">火</span>
-            <span className="text-red-400/80 text-sm">{getElementValue('火')}%</span>
-          </div>
-        </motion.div>
-
-        {/* 木 - 左侧 */}
-        <motion.div 
-          className="absolute left-8 top-1/2 -translate-y-1/2 flex flex-col items-center"
-          whileHover={{ scale: 1.05 }}
-        >
-          <div className="text-green-400/70 text-sm mb-2 font-medium tracking-wider">正财偏财</div>
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400/30 to-green-500/10 border-2 border-green-400/60 flex flex-col items-center justify-center shadow-lg shadow-green-500/20">
-            <span className="text-green-400 text-2xl font-bold">木</span>
-            <span className="text-green-400/80 text-sm">{getElementValue('木')}%</span>
-          </div>
-        </motion.div>
-
-        {/* 金 - 右侧 */}
-        <motion.div 
-          className="absolute right-8 top-1/2 -translate-y-1/2 flex flex-col items-center"
-          whileHover={{ scale: 1.05 }}
-        >
-          <div className="text-amber-400/70 text-sm mb-2 font-medium tracking-wider">劫财比肩</div>
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400/30 to-yellow-500/10 border-2 border-amber-400/60 flex flex-col items-center justify-center shadow-lg shadow-amber-500/20">
-            <span className="text-amber-400 text-2xl font-bold">金</span>
-            <span className="text-amber-400/80 text-sm">{getElementValue('金')}%</span>
-          </div>
-          <div className="mt-2 px-3 py-1 bg-amber-500 text-white text-xs rounded-full font-medium">日主</div>
-        </motion.div>
-
-        {/* 水 - 底部 */}
-        <motion.div 
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center"
-          whileHover={{ scale: 1.05 }}
-        >
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400/30 to-blue-500/10 border-2 border-blue-400/60 flex flex-col items-center justify-center shadow-lg shadow-blue-500/20">
-            <span className="text-blue-400 text-2xl font-bold">水</span>
-            <span className="text-blue-400/80 text-sm">{getElementValue('水')}%</span>
-          </div>
-          <div className="text-blue-400/70 text-sm mt-2 font-medium tracking-wider">食神伤官</div>
-        </motion.div>
-
-        {/* 土 - 右下 */}
-        <motion.div 
-          className="absolute bottom-20 right-20 flex flex-col items-center"
-          whileHover={{ scale: 1.05 }}
-        >
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400/30 to-amber-500/10 border-2 border-yellow-400/60 flex flex-col items-center justify-center shadow-lg shadow-yellow-500/20">
-            <span className="text-yellow-400 text-xl font-bold">土</span>
-            <span className="text-yellow-400/80 text-xs">{getElementValue('土')}%</span>
-          </div>
-          <div className="text-yellow-400/70 text-xs mt-1 font-medium">偏印</div>
-        </motion.div>
-
-        {/* 中心 */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-white/10 to-white/5 border border-white/20 flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-white/40 text-xs mb-1">生</div>
-              <div className="text-white/60 text-xs">克</div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* 喜用神 - 大气版 */}
-      {analysis && (
+      {/* 五行图 - 重新设计 */}
+      <div className="grid lg:grid-cols-2 gap-8">
+        {/* 左侧：五行圆形图 */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-3xl p-8 border border-blue-500/20"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-[#0a0a0f] rounded-3xl p-8 border border-white/10"
         >
-          <div className="flex items-center justify-center gap-6 mb-8">
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-blue-500/30" />
-            <div className="flex items-center gap-3">
-              <Compass className="w-6 h-6 text-blue-400" />
-              <span className="text-2xl font-bold text-white">喜用神</span>
-            </div>
-            <div className="flex gap-2">
-              {analysis.喜用神.map((element, i) => (
-                <span key={i} className="px-4 py-2 bg-blue-500/20 rounded-xl text-blue-400 font-bold text-lg">
-                  {element}
-                </span>
+          <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+            <Activity className="w-5 h-5 text-amber-400" />
+            五行能量分布
+          </h3>
+          
+          <div className="relative w-full aspect-square max-w-md mx-auto">
+            {/* 背景圆环 */}
+            <div className="absolute inset-8 rounded-full border border-white/5" />
+            <div className="absolute inset-16 rounded-full border border-white/5" />
+            <div className="absolute inset-24 rounded-full border border-white/5" />
+            
+            {/* SVG 生克线 */}
+            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 400">
+              <defs>
+                <marker id="arrow-sheng" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                  <polygon points="0 0, 8 4, 0 8" fill="rgba(74,222,128,0.6)" />
+                </marker>
+                <marker id="arrow-ke" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                  <polygon points="0 0, 8 4, 0 8" fill="rgba(248,113,113,0.6)" />
+                </marker>
+              </defs>
+              
+              {/* 相生线 - 绿色实线 */}
+              {shengRelations.map((rel, i) => (
+                <path key={i} d={rel.path} fill="none" stroke="rgba(74,222,128,0.4)" strokeWidth="2" markerEnd="url(#arrow-sheng)" />
               ))}
-            </div>
-            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-blue-500/30" />
-          </div>
+              
+              {/* 相克线 - 红色虚线 */}
+              {keRelations.map((rel, i) => (
+                <line key={i} x1={rel.x1} y1={rel.y1} x2={rel.x2} y2={rel.y2} 
+                  stroke="rgba(248,113,113,0.3)" strokeWidth="1.5" strokeDasharray="4 4" />
+              ))}
+            </svg>
 
-          <div className="grid grid-cols-3 gap-6">
-            <div className="bg-white/5 rounded-2xl p-6 text-center">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <Palette className="w-5 h-5 text-pink-400" />
-                <span className="text-white/70">幸运颜色</span>
-              </div>
-              <div className="flex justify-center gap-3">
-                {analysis.幸运颜色.map((color, i) => (
-                  <div key={i} className="flex flex-col items-center gap-2">
-                    <div className="w-12 h-12 rounded-full shadow-lg" style={{ background: color }} />
+            {/* 五行节点 */}
+            {Object.entries(wuxingConfig).map(([name, config]) => {
+              const value = wuxingData[name as keyof WuXingData];
+              const isActive = activeElement === name;
+              return (
+                <motion.div
+                  key={name}
+                  className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+                  style={{ left: `${config.pos.x}%`, top: `${config.pos.y}%` }}
+                  onMouseEnter={() => setActiveElement(name)}
+                  onMouseLeave={() => setActiveElement(null)}
+                  whileHover={{ scale: 1.1 }}
+                >
+                  {/* 标签 */}
+                  <div className={`text-xs mb-2 text-center ${config.text} opacity-70 whitespace-nowrap`}>
+                    {config.label}
                   </div>
-                ))}
-              </div>
-            </div>
-            
-            <div className="bg-white/5 rounded-2xl p-6 text-center">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <MapPin className="w-5 h-5 text-green-400" />
-                <span className="text-white/70">幸运方位</span>
-              </div>
-              <div className="flex justify-center gap-2">
-                {analysis.幸运方位.map((dir, i) => (
-                  <span key={i} className="px-4 py-2 bg-white/10 rounded-xl text-white font-medium">{dir}</span>
-                ))}
-              </div>
-            </div>
-            
-            <div className="bg-white/5 rounded-2xl p-6 text-center">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <Hash className="w-5 h-5 text-amber-400" />
-                <span className="text-white/70">幸运数字</span>
-              </div>
-              <div className="flex justify-center gap-2">
-                {analysis.幸运数字.map((num, i) => (
-                  <span key={i} className="px-4 py-2 bg-white/10 rounded-xl text-white font-medium">{num}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
+                  
+                  {/* 圆圈 */}
+                  <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${config.bg}/30 to-transparent border-2 ${config.bg.replace('bg-', 'border-')}/60 flex flex-col items-center justify-center shadow-lg transition-all ${isActive ? 'scale-110 shadow-xl' : ''}`}
+                    style={{ boxShadow: `0 0 30px ${config.color}20` }}
+                  >
+                    <span className={`${config.text} text-xl font-bold`}>{name}</span>
+                    <span className={`${config.text} text-xs opacity-80`}>{value}%</span>
+                  </div>
+                  
+                  {/* 日主标记 */}
+                  {config.isRizhu && (
+                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-amber-500 text-white text-xs rounded-full whitespace-nowrap">
+                      日主
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
 
-      {/* 适合行业 - 大气版 */}
-      {analysis && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-3xl p-8 border border-purple-500/20"
-        >
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center">
-              <Briefcase className="w-7 h-7 text-purple-400" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white">适合行业</h3>
-              <p className="text-white/50">基于五行喜用神分析</p>
+            {/* 中心 */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-gradient-to-br from-white/10 to-white/5 border border-white/20 flex items-center justify-center">
+              <div className="text-center">
+                <div className="text-white/40 text-xs">生</div>
+                <div className="text-white/30 text-[10px]">克</div>
+              </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            {analysis.适合行业.map((industry, i) => (
-              <motion.span 
-                key={i} 
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.05 }}
-                className="px-5 py-3 bg-white/10 rounded-xl text-white font-medium hover:bg-white/20 transition-colors cursor-pointer"
-              >
-                {industry}
-              </motion.span>
-            ))}
+
+          {/* 图例 */}
+          <div className="flex justify-center gap-6 mt-6 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-0.5 bg-green-400/60" />
+              <span className="text-white/50">相生</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-0.5 bg-red-400/40 border-b border-dashed border-red-400/40" />
+              <span className="text-white/50">相克</span>
+            </div>
           </div>
         </motion.div>
-      )}
+
+        {/* 右侧：开运建议 */}
+        {analysis && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="space-y-4"
+          >
+            {/* 幸运元素 */}
+            <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-2xl p-6 border border-blue-500/20">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-blue-400" />
+                开运元素
+              </h3>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="text-white/50 text-xs mb-2">幸运颜色</div>
+                  <div className="flex justify-center gap-2">
+                    {analysis.幸运颜色.slice(0, 2).map((color, i) => (
+                      <div key={i} className="w-10 h-10 rounded-full shadow-lg border-2 border-white/20" style={{ background: color }} />
+                    ))}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-white/50 text-xs mb-2">幸运方位</div>
+                  <div className="text-white font-medium">{analysis.幸运方位[0]}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-white/50 text-xs mb-2">幸运数字</div>
+                  <div className="text-white font-medium">{analysis.幸运数字[0]}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 开运建议 */}
+            <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-2xl p-6 border border-green-500/20">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-green-400" />
+                开运建议
+              </h3>
+              <ul className="space-y-3">
+                {analysis.开运建议?.map((tip, i) => (
+                  <li key={i} className="flex items-start gap-3 text-white/70 text-sm">
+                    <span className="w-5 h-5 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">{i + 1}</span>
+                    {tip}
+                  </li>
+                )) || (
+                  <>
+                    <li className="flex items-start gap-3 text-white/70 text-sm">
+                      <span className="w-5 h-5 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">1</span>
+                      多穿{analysis.喜用神[0]}色系衣物，增强个人气场
+                    </li>
+                    <li className="flex items-start gap-3 text-white/70 text-sm">
+                      <span className="w-5 h-5 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">2</span>
+                      办公座位朝向{analysis.幸运方位[0]}，利于事业发展
+                    </li>
+                    <li className="flex items-start gap-3 text-white/70 text-sm">
+                      <span className="w-5 h-5 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">3</span>
+                      重要决策可选带数字{analysis.幸运数字[0]}的日期
+                    </li>
+                  </>
+                )}
+              </ul>
+            </div>
+
+            {/* 适合行业 */}
+            <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl p-6 border border-purple-500/20">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Target className="w-5 h-5 text-purple-400" />
+                适合行业
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {analysis.适合行业.map((industry, i) => (
+                  <span key={i} className="px-3 py-1.5 bg-white/10 rounded-lg text-white/80 text-sm hover:bg-white/20 transition-colors cursor-pointer">
+                    {industry}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </div>
 
       {loading && (
         <div className="text-center py-12">
