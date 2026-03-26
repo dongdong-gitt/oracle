@@ -21,11 +21,11 @@ interface Advisor {
 
 const advisors: Advisor[] = [
   {
-    id: 'canshan',
-    name: '参天',
-    title: '周期策略师',
-    desc: '精通命理周期与大运分析，洞察趋势转折点',
-    avatar: '参',
+    id: 'ziping',
+    name: '子平',
+    title: '命理宗师',
+    desc: '传承子平真诠，精通八字格局与用神分析',
+    avatar: '子',
     color: '#06b6d4',
   },
   {
@@ -39,12 +39,12 @@ const advisors: Advisor[] = [
 ];
 
 export default function AIAdvisors() {
-  const [activeAdvisor, setActiveAdvisor] = useState<string>('canshan');
+  const [activeAdvisor, setActiveAdvisor] = useState<string>('ziping');
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: '你好，我是参天。我已为你解析命盘，有什么关于命理周期或投资时机的问题，都可以问我。',
-      advisor: 'canshan',
+      content: '你好，我是子平。传承子平真诠，精通八字格局与用神分析。有任何命理问题，都可以问我。',
+      advisor: 'ziping',
     },
   ]);
   const [input, setInput] = useState('');
@@ -92,8 +92,8 @@ export default function AIAdvisors() {
                 setActiveAdvisor(advisor.id);
                 setMessages([{
                   role: 'assistant',
-                  content: advisor.id === 'canshan' 
-                    ? '你好，我是参天。我已为你解析命盘，有什么关于命理周期或投资时机的问题，都可以问我。'
+                  content: advisor.id === 'ziping'
+                    ? '你好，我是子平。传承子平真诠，精通八字格局与用神分析。有任何命理问题，都可以问我。'
                     : '你好，我是钱先生。专注于资产配置与风险管理，让我们一起规划你的财富体系。',
                   advisor: advisor.id,
                 }]);

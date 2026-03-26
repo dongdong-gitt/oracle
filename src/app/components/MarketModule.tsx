@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Activity, Sparkles, AlertTriangle, CheckCircle, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Sparkles, AlertTriangle, CheckCircle, Target, RefreshCw } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 
 interface MarketData {
@@ -12,8 +12,9 @@ interface MarketData {
   change: number;
   changePercent: number;
   element: string;
-  elementColor: string;
   trend: 'up' | 'down' | 'neutral';
+  high?: number;
+  low?: number;
 }
 
 interface BaziAdvice {
@@ -62,95 +63,103 @@ const marketConfig = {
   },
 };
 
-// 模拟数据
-const mockData: Record<string, MarketData> = {
-  sh: {
-    name: '上证指数',
-    symbol: 'SSE',
-    price: 3245.67,
-    change: 39.45,
-    changePercent: 1.23,
-    element: '火',
-    elementColor: 'bg-red-500/20 text-red-400',
-    trend: 'up',
-  },
-  nasdaq: {
-    name: '纳斯达克',
-    symbol: 'NASDAQ',
-    price: 15234.50,
-    change: 363.45,
-    changePercent: 2.45,
-    element: '木',
-    elementColor: 'bg-green-500/20 text-green-400',
-    trend: 'up',
-  },
-  btc: {
-    name: '比特币',
-    symbol: 'BTC',
-    price: 67890.00,
-    change: -2187.50,
-    changePercent: -3.12,
-    element: '金',
-    elementColor: 'bg-amber-500/20 text-amber-400',
-    trend: 'down',
-  },
-  gold: {
-    name: '黄金',
-    symbol: 'GOLD',
-    price: 2345.00,
-    change: 20.67,
-    changePercent: 0.89,
-    element: '土',
-    elementColor: 'bg-yellow-500/20 text-amber-400',
-    trend: 'up',
-  },
-};
-
 export default function MarketModule({ type }: MarketModuleProps) {
   const { baziResult } = useUser();
-  const [data, setData] = useState<MarketData>(mockData[type]);
+  const [data, setData] = useState<MarketData | null>(null);
   const [advice, setAdvice] = useState<BaziAdvice | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const config = marketConfig[type];
 
-  useEffect(() => {
-    if (baziResult?.detail) {
-      generateBaziAdvice();
-    }
-  }, [baziResult, type]);
-
-  const generateBaziAdvice = async () => {
+  // 获取实时数据
+  const fetchData = async () => {
     setLoading(true);
-    // 模拟AI分析（后续可接入真实API）
-    const directions: ('buy' | 'sell' | 'hold')[] = ['buy', 'sell', 'hold'];
-    const randomDirection = directions[Math.floor(Math.random() * directions.length)];
-    
-    const adviceMap = {
-      buy: {
-        score: 75,
-        advice: '建议逢低买入',
-        direction: 'buy' as const,
-        reason: `该品种五行属${config.element}，与您八字喜用神相合，当前运势利于${config.element}行相关投资。`,
-      },
-      sell: {
-        score: 35,
-        advice: '建议获利了结',
-        direction: 'sell' as const,
-        reason: `该品种五行属${config.element}，与您八字当前大运相克，建议暂时回避${config.element}行相关投资。`,
-      },
-      hold: {
-        score: 55,
-        advice: '建议持仓观望',
-        direction: 'hold' as const,
-        reason: `该品种五行属${config.element}，与您八字五行关系中性，可小仓位持有观察。`,
-      },
-    };
-    
-    setAdvice(adviceMap[randomDirection]);
+    try {
+      const response = await fetch(`/api/market?type=${type}`);
+      const result = await response.json();
+      if (result.success && result.data) {
+        setData(result.data);
+        setLastUpdate(new Date());
+        // 生成命理建议
+        generateBaziAdvice(result.data);
+      }
+    } catch (e) {
+      console.error('获取数据失败:', e);
+    }
     setLoading(false);
   };
 
-  const isPositive = data.change >= 0;
+  // 生成八字建议
+  const generateBaziAdvice = (marketData: MarketData) => {
+    if (!baziResult?.detail) return;
+    
+    const detail = baziResult.detail;
+    const wuxing = detail.五行统计;
+    const riZhu = detail.日主;
+    
+    // 简单的五行生克逻辑
+    const elementScore: Record<string, number> = {
+      '金': wuxing.金,
+      '木': wuxing.木,
+      '水': wuxing.水,
+      '火': wuxing.火,
+      '土': wuxing.土,
+    };
+    
+    const marketElement = config.element;
+    const userElementScore = elementScore[marketElement] || 0;
+    const total = Object.values(wuxing).reduce((a, b) => a + b, 0);
+    const elementPercent = (userElementScore / total) * 100;
+    
+    // 根据五行匹配度和市场走势生成建议
+    let score = 50;
+    let direction: 'buy' | 'sell' | 'hold' = 'hold';
+    let reason = '';
+    
+    if (elementPercent > 25) {
+      score += 20;
+      direction = 'buy';
+      reason = `您八字${marketElement}旺，与该品种五行相合，有利于把握${config.name}的投资机会。`;
+    } else if (elementPercent < 15) {
+      score -= 15;
+      direction = 'sell';
+      reason = `您八字${marketElement}弱，与该品种五行相克，建议谨慎对待${config.name}投资。`;
+    } else {
+      direction = 'hold';
+      reason = `您八字${marketElement}适中，可小仓位关注${config.name}走势。`;
+    }
+    
+    // 结合市场走势
+    if (marketData.trend === 'up') {
+      score += 10;
+    } else {
+      score -= 10;
+    }
+    
+    score = Math.max(10, Math.min(95, score));
+    
+    const adviceMap = {
+      buy: { advice: '建议逢低买入', direction: 'buy' as const },
+      sell: { advice: '建议获利了结', direction: 'sell' as const },
+      hold: { advice: '建议持仓观望', direction: 'hold' as const },
+    };
+    
+    setAdvice({
+      score,
+      advice: adviceMap[direction].advice,
+      direction: adviceMap[direction].direction,
+      reason,
+    });
+  };
+
+  useEffect(() => {
+    fetchData();
+    // 每30秒刷新一次
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, [type, baziResult]);
+
+  const isPositive = data ? data.change >= 0 : true;
 
   const getDirectionIcon = () => {
     if (!advice) return null;
@@ -184,22 +193,40 @@ export default function MarketModule({ type }: MarketModuleProps) {
             </div>
             <p className="text-white/50 text-sm">{config.desc}</p>
           </div>
-          <div className="text-right">
-            <div className="text-4xl font-bold text-white">
-              {type === 'btc' || type === 'gold' ? '$' : ''}
-              {data.price.toLocaleString()}
-            </div>
-            <div className={`flex items-center justify-end gap-1 text-sm mt-1 ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-              {isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-              <span>{isPositive ? '+' : ''}{data.changePercent}%</span>
-              <span className="text-white/40 ml-2">({isPositive ? '+' : ''}{data.change.toLocaleString()})</span>
-            </div>
-          </div>
+          <button 
+            onClick={fetchData}
+            className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition-colors"
+          >
+            <RefreshCw className={`w-5 h-5 text-white/60 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
-        {/* 走势图占位 */}
+        {data ? (
+          <div className="flex items-end gap-4 mb-6">
+            <div className="text-4xl font-bold text-white">
+              {type === 'btc' || type === 'gold' ? '$' : ''}
+              {data.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className={`flex items-center justify-end gap-1 text-sm ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+              {isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+              <span>{isPositive ? '+' : ''}{data.changePercent}%</span>
+              <span className="text-white/40 ml-2">({isPositive ? '+' : ''}{data.change.toFixed(2)})</span>
+            </div>
+          </div>
+        ) : (
+          <div className="h-16 flex items-center justify-center">
+            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          </div>
+        )}
+
+        {/* 走势图占位 - 后续可接入K线图 */}
         <div className="h-48 bg-black/20 rounded-2xl flex items-center justify-center">
-          <p className="text-white/30">金融API接入中...</p>
+          <p className="text-white/30">K线图接入中...</p>
+        </div>
+
+        {/* 更新时间 */}
+        <div className="mt-4 text-right text-xs text-white/30">
+          更新时间: {lastUpdate.toLocaleTimeString('zh-CN')}
         </div>
       </div>
 
@@ -287,10 +314,10 @@ export default function MarketModule({ type }: MarketModuleProps) {
         </p>
       </div>
 
-      {loading && (
+      {loading && !data && (
         <div className="text-center py-8">
           <div className="w-8 h-8 border-2 border-white/20 border-t-indigo-400 rounded-full mx-auto mb-3 animate-spin" />
-          <p className="text-white/50">AI 正在分析命理契合度...</p>
+          <p className="text-white/50">获取实时数据中...</p>
         </div>
       )}
     </motion.div>
