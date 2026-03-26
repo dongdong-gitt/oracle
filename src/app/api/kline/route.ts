@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { calculateBaZi, calculateDaYun, calculateLiuNian, getBaziDetail } from '@/app/lib/bazi';
+import { calculateBaZi, calculateDaYun, calculateLiuNian, getBaziDetail, calculateBaziScore } from '@/app/lib/bazi';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 
@@ -158,11 +158,19 @@ export async function POST(request: NextRequest) {
     const daYun = calculateDaYun(year, month, day, hour, gender);
     const liuNian = calculateLiuNian(year, month, day, hour, gender);
 
+    // 使用算法计算评分（基于八字五行、十神、大运）
+    const currentDaYun = daYun.find((d: any) => {
+      const currentYear = new Date().getFullYear();
+      return d.开始年份 <= currentYear && d.结束年份 >= currentYear;
+    });
+    const algorithmScores = calculateBaziScore(detail, currentDaYun);
+    
     const baseScores = {
-      career: 75,
-      wealth: 72,
-      love: 68,
-      health: 80,
+      career: algorithmScores.career,
+      wealth: algorithmScores.wealth,
+      love: algorithmScores.love,
+      health: algorithmScores.health,
+      overall: algorithmScores.overall,
     };
 
     const kline = [];

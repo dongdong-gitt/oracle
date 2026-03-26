@@ -269,3 +269,122 @@ export function calculateLiuNian(year: number, month: number, day: number, hour:
   }
   return liuNian;
 }
+
+/**
+ * 八字运势评分算法
+ * 基于五行力量、十神配置、大运流年计算
+ */
+export interface BaziScore {
+  career: number;    // 事业分
+  wealth: number;    // 财运分
+  love: number;      // 感情分
+  health: number;    // 健康分
+  overall: number;   // 综合分
+}
+
+export function calculateBaziScore(
+  detail: any,
+  currentDaYun?: { ganZhi: string; age: number }
+): BaziScore {
+  const pillars = [detail.年柱, detail.月柱, detail.日柱, detail.时柱];
+  const riZhu = detail.日主;
+  const wuxing = detail.五行统计;
+  
+  // 1. 计算各五行力量（天干+地支+藏干）
+  const wuxingPower: Record<string, number> = { '金': 0, '木': 0, '水': 0, '火': 0, '土': 0 };
+  
+  pillars.forEach((p: any) => {
+    // 天干力量
+    wuxingPower[p.天干.五行] += 1;
+    // 地支力量
+    wuxingPower[p.地支.五行] += 1;
+    // 藏干力量（主气0.6，中气0.3，余气0.1）
+    if (p.地支.藏干?.主气) wuxingPower[WU_XING_MAP[p.地支.藏干.主气.天干]] += 0.6;
+    if (p.地支.藏干?.中气) wuxingPower[WU_XING_MAP[p.地支.藏干.中气.天干]] += 0.3;
+    if (p.地支.藏干?.余气) wuxingPower[WU_XING_MAP[p.地支.藏干.余气.天干]] += 0.1;
+  });
+  
+  // 2. 计算十神力量
+  const shishenPower: Record<string, number> = {};
+  pillars.forEach((p: any) => {
+    const tg = p.天干.十神;
+    const cg1 = p.地支.藏干?.主气?.十神;
+    const cg2 = p.地支.藏干?.中气?.十神;
+    const cg3 = p.地支.藏干?.余气?.十神;
+    
+    shishenPower[tg] = (shishenPower[tg] || 0) + 1;
+    if (cg1) shishenPower[cg1] = (shishenPower[cg1] || 0) + 0.6;
+    if (cg2) shishenPower[cg2] = (shishenPower[cg2] || 0) + 0.3;
+    if (cg3) shishenPower[cg3] = (shishenPower[cg3] || 0) + 0.1;
+  });
+  
+  // 3. 计算日主强弱
+  const riZhuWuxing = WU_XING_MAP[riZhu];
+  const riZhuPower = wuxingPower[riZhuWuxing];
+  const totalPower = Object.values(wuxingPower).reduce((a, b) => a + b, 0);
+  const riZhuRatio = riZhuPower / totalPower;
+  const isStrong = riZhuRatio > 0.18; // 日主占比>18%为身强
+  
+  // 4. 大运影响
+  let dayunBonus = 0;
+  if (currentDaYun) {
+    const dayunGan = currentDaYun.ganZhi[0];
+    const dayunZhi = currentDaYun.ganZhi[1];
+    const dayunWuxing = WU_XING_MAP[dayunGan];
+    
+    // 大运五行生助日主则加分
+    if (dayunWuxing === riZhuWuxing || 
+        (riZhuWuxing === '金' && dayunWuxing === '土') ||
+        (riZhuWuxing === '木' && dayunWuxing === '水') ||
+        (riZhuWuxing === '水' && dayunWuxing === '金') ||
+        (riZhuWuxing === '火' && dayunWuxing === '木') ||
+        (riZhuWuxing === '土' && dayunWuxing === '火')) {
+      dayunBonus = 10;
+    }
+    // 大运五行克制日主则减分
+    else if ((riZhuWuxing === '金' && dayunWuxing === '火') ||
+             (riZhuWuxing === '木' && dayunWuxing === '金') ||
+             (riZhuWuxing === '水' && dayunWuxing === '土') ||
+             (riZhuWuxing === '火' && dayunWuxing === '水') ||
+             (riZhuWuxing === '土' && dayunWuxing === '木')) {
+      dayunBonus = -5;
+    }
+  }
+  
+  // 5. 计算各项分数
+  // 事业分 = 官杀(正官+七杀) + 印星(正印+偏印) + 大运加成
+  const guansha = (shishenPower['正官'] || 0) + (shishenPower['七杀'] || 0);
+  const yinxing = (shishenPower['正印'] || 0) + (shishenPower['偏印'] || 0);
+  let careerScore = Math.min(95, Math.max(35, 40 + guansha * 8 + yinxing * 5 + dayunBonus));
+  
+  // 财运分 = 财星(正财+偏财) + 食伤(食神+伤官) + 大运加成
+  const caixing = (shishenPower['正财'] || 0) + (shishenPower['偏财'] || 0);
+  const shishang = (shishenPower['食神'] || 0) + (shishenPower['伤官'] || 0);
+  let wealthScore = Math.min(95, Math.max(35, 40 + caixing * 8 + shishang * 5 + dayunBonus * 0.8));
+  
+  // 感情分 = 配偶星(男看财女看官) + 桃花 + 合会
+  let peiouxing = 0;
+  // 简化：庚金日主男，正财为乙木、偏财为甲木
+  if (riZhu === '庚') {
+    peiouxing = (shishenPower['正财'] || 0) + (shishenPower['偏财'] || 0) * 0.5;
+  }
+  const taohua = detail.神煞?.日柱?.includes('桃花') ? 10 : 0;
+  let loveScore = Math.min(95, Math.max(35, 45 + peiouxing * 6 + taohua + dayunBonus * 0.5));
+  
+  // 健康分 = 五行平衡度 + 日主强弱适中
+  const wuxingVariance = Math.max(...Object.values(wuxingPower)) - Math.min(...Object.values(wuxingPower));
+  const balanceScore = Math.max(0, 20 - wuxingVariance);
+  const riZhuHealth = isStrong ? 15 : (riZhuRatio < 0.12 ? 10 : 20);
+  let healthScore = Math.min(95, Math.max(40, 50 + balanceScore + riZhuHealth + dayunBonus * 0.3));
+  
+  // 综合分 = 加权平均
+  const overallScore = Math.round((careerScore * 0.3 + wealthScore * 0.25 + loveScore * 0.25 + healthScore * 0.2));
+  
+  return {
+    career: Math.round(careerScore),
+    wealth: Math.round(wealthScore),
+    love: Math.round(loveScore),
+    health: Math.round(healthScore),
+    overall: overallScore,
+  };
+}
