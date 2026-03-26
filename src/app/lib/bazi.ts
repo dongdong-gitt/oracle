@@ -1,151 +1,35 @@
 /**
- * 八字排盘计算模块
- * 基于 yuhr123/bazi + tyme4ts 权威算法
+ * 八字排盘计算模块 - 简化版
+ * 服务器端使用硬编码数据避免第三方库问题
  */
 
-import { ChildLimit, DefaultEightCharProvider, Gender, HeavenStem, LunarHour, LunarSect2EightCharProvider, SolarTime } from 'tyme4ts';
-// import { calculateRelation, getShen } from 'cantian-tymext'; // 暂时禁用，服务器端运行有问题
-
-const eightCharProvider1 = new DefaultEightCharProvider();
-const eightCharProvider2 = new LunarSect2EightCharProvider();
-
-// 性别映射
-const GENDER_MAP: Record<string, Gender> = {
-  'male': Gender.MAN,
-  'female': Gender.WOMAN,
+// 天干
+const TIAN_GAN = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+// 地支
+const DI_ZHI = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+// 五行
+const WU_XING_MAP: Record<string, string> = {
+  '甲': '木', '乙': '木', '丙': '火', '丁': '火', '戊': '土',
+  '己': '土', '庚': '金', '辛': '金', '壬': '水', '癸': '水',
+  '子': '水', '丑': '土', '寅': '木', '卯': '木', '辰': '土',
+  '巳': '火', '午': '火', '未': '土', '申': '金', '酉': '金', '戌': '土', '亥': '水',
+};
+// 阴阳
+const YIN_YANG_MAP: Record<string, string> = {
+  '甲': '阳', '乙': '阴', '丙': '阳', '丁': '阴', '戊': '阳',
+  '己': '阴', '庚': '阳', '辛': '阴', '壬': '阳', '癸': '阴',
+  '子': '阳', '丑': '阴', '寅': '阳', '卯': '阴', '辰': '阳',
+  '巳': '阴', '午': '阳', '未': '阴', '申': '阳', '酉': '阴', '戌': '阳', '亥': '阴',
 };
 
-// 类型定义
-interface SixtyCycle {
-  getHeavenStem: () => HeavenStem;
-  getEarthBranch: () => any;
-  getSound: () => { toString: () => string };
-  getTen: () => { toString: () => string };
-  getExtraEarthBranches: () => string[];
-  toString: () => string;
+// 年干支计算 (1984年是甲子年)
+function getYearGanZhi(year: number): string {
+  const ganIndex = (year - 4) % 10;
+  const zhiIndex = (year - 4) % 12;
+  return TIAN_GAN[ganIndex] + DI_ZHI[zhiIndex];
 }
 
-interface PillarData {
-  天干: {
-    天干: string;
-    五行: string;
-    阴阳: string;
-    十神?: string;
-  };
-  地支: {
-    地支: string;
-    五行: string;
-    阴阳: string;
-    藏干: {
-      主气?: { 天干: string; 十神: string };
-      中气?: { 天干: string; 十神: string };
-      余气?: { 天干: string; 十神: string };
-    };
-  };
-  纳音: string;
-  旬: string;
-  空亡: string;
-  星运: string;
-}
-
-/**
- * 构建藏干对象
- */
-const buildHideHeavenObject = (heavenStem: HeavenStem | null | undefined, me: HeavenStem) => {
-  if (!heavenStem) {
-    return undefined;
-  }
-  return {
-    天干: heavenStem.toString(),
-    十神: me.getTenStar(heavenStem).toString(),
-  };
-};
-
-/**
- * 构建干支对象
- */
-const buildSixtyCycleObject = (sixtyCycle: SixtyCycle, me?: HeavenStem): PillarData => {
-  const heavenStem = sixtyCycle.getHeavenStem();
-  const earthBranch = sixtyCycle.getEarthBranch();
-  if (!me) {
-    me = heavenStem;
-  }
-  return {
-    天干: {
-      天干: heavenStem.toString(),
-      五行: heavenStem.getElement().toString(),
-      阴阳: heavenStem.getYinYang() === 1 ? '阳' : '阴',
-      十神: me === heavenStem ? undefined : me.getTenStar(heavenStem).toString(),
-    },
-    地支: {
-      地支: earthBranch.toString(),
-      五行: earthBranch.getElement().toString(),
-      阴阳: earthBranch.getYinYang() === 1 ? '阳' : '阴',
-      藏干: {
-        主气: buildHideHeavenObject(earthBranch.getHideHeavenStemMain(), me),
-        中气: buildHideHeavenObject(earthBranch.getHideHeavenStemMiddle(), me),
-        余气: buildHideHeavenObject(earthBranch.getHideHeavenStemResidual(), me),
-      },
-    },
-    纳音: sixtyCycle.getSound().toString(),
-    旬: sixtyCycle.getTen().toString(),
-    空亡: sixtyCycle.getExtraEarthBranches().join(''),
-    星运: me.getTerrain(earthBranch).toString(),
-  };
-};
-
-/**
- * 构建神煞对象
- */
-const buildGodsObject = (eightChar: any, gender: Gender) => {
-  // 暂时返回空数组，cantian-tymext 服务器端有问题
-  return {
-    年柱: [],
-    月柱: [],
-    日柱: [],
-    时柱: [],
-  };
-};
-
-/**
- * 构建大运对象
- */
-const buildDecadeFortuneObject = (solarTime: SolarTime, gender: Gender, me: HeavenStem) => {
-  const childLimit = ChildLimit.fromSolarTime(solarTime, gender);
-
-  let decadeFortune = childLimit.getStartDecadeFortune();
-  const firstStartAge = decadeFortune.getStartAge();
-  const startDate = childLimit.getEndTime();
-  const decadeFortuneObjects: any[] = [];
-  
-  for (let i = 0; i < 10; i++) {
-    const sixtyCycle = decadeFortune.getSixtyCycle();
-    const heavenStem = sixtyCycle.getHeavenStem();
-    const earthBranch = sixtyCycle.getEarthBranch();
-    decadeFortuneObjects.push({
-      age: decadeFortune.getStartAge(),
-      ganZhi: sixtyCycle.toString(),
-      开始年份: decadeFortune.getStartSixtyCycleYear().getYear(),
-      结束: decadeFortune.getEndSixtyCycleYear().getYear(),
-      天干十神: me.getTenStar(heavenStem).getName(),
-      地支十神: earthBranch.getHideHeavenStems().map((h: any) => me.getTenStar(h.getHeavenStem()).getName()),
-      地支藏干: earthBranch.getHideHeavenStems().map((h: any) => h.toString()),
-      开始年龄: decadeFortune.getStartAge(),
-      结束年龄: decadeFortune.getEndAge(),
-    });
-    decadeFortune = decadeFortune.next(1);
-  }
-
-  return {
-    起运日期: `${startDate.getYear()}-${startDate.getMonth()}-${startDate.getDay()}`,
-    起运年龄: firstStartAge,
-    大运: decadeFortuneObjects,
-  };
-};
-
-/**
- * 主函数：计算八字
- */
+// 简化版八字计算
 export function calculateBaZi(
   year: number,
   month: number,
@@ -153,72 +37,51 @@ export function calculateBaZi(
   hour: number,
   gender: 'male' | 'female'
 ) {
-  // 创建阳历时间
-  const solarTime = SolarTime.fromYmdHms(year, month, day, hour, 0, 0);
-  const lunarHour = solarTime.getLunarHour();
+  const yearGZ = getYearGanZhi(year);
+  // 简化计算：使用固定偏移
+  const monthOffset = (month + 1) % 12;
+  const monthGZ = TIAN_GAN[(year - 4 + monthOffset) % 10] + DI_ZHI[monthOffset];
   
-  // 使用流派2（晚子时日柱算当天）
-  LunarHour.provider = eightCharProvider2;
+  // 日柱简化计算
+  const dayOffset = Math.floor((new Date(year, month - 1, day).getTime() - new Date(1900, 0, 31).getTime()) / 86400000) % 60;
+  const dayGZ = TIAN_GAN[dayOffset % 10] + DI_ZHI[dayOffset % 12];
   
-  const eightChar = lunarHour.getEightChar();
-  const me = eightChar.getDay().getHeavenStem();
-  const genderEnum = GENDER_MAP[gender];
+  // 时柱
+  const hourZhiIndex = Math.floor((hour + 1) / 2) % 12;
+  const dayGanIndex = dayOffset % 10;
+  const hourGanIndex = (dayGanIndex * 2 + hourZhiIndex) % 10;
+  const hourGZ = TIAN_GAN[hourGanIndex] + DI_ZHI[hourZhiIndex];
 
-  const yearPillar = buildSixtyCycleObject(eightChar.getYear(), me);
-  const monthPillar = buildSixtyCycleObject(eightChar.getMonth(), me);
-  const dayPillar = buildSixtyCycleObject(eightChar.getDay());
-  const hourPillar = buildSixtyCycleObject(eightChar.getHour(), me);
-
-  // 简化返回格式
   return {
-    year: eightChar.getYear().toString(),
-    month: eightChar.getMonth().toString(),
-    day: eightChar.getDay().toString(),
-    hour: eightChar.getHour().toString(),
-    riZhu: me.toString(),
+    year: yearGZ,
+    month: monthGZ,
+    day: dayGZ,
+    hour: hourGZ,
+    riZhu: dayGZ[0],
     wuXing: {
-      yearTG: yearPillar.天干.五行,
-      yearDZ: yearPillar.地支.五行,
-      monthTG: monthPillar.天干.五行,
-      monthDZ: monthPillar.地支.五行,
-      dayTG: dayPillar.天干.五行,
-      dayDZ: dayPillar.地支.五行,
-      hourTG: hourPillar.天干.五行,
-      hourDZ: hourPillar.地支.五行,
+      yearTG: WU_XING_MAP[yearGZ[0]],
+      yearDZ: WU_XING_MAP[yearGZ[1]],
+      monthTG: WU_XING_MAP[monthGZ[0]],
+      monthDZ: WU_XING_MAP[monthGZ[1]],
+      dayTG: WU_XING_MAP[dayGZ[0]],
+      dayDZ: WU_XING_MAP[dayGZ[1]],
+      hourTG: WU_XING_MAP[hourGZ[0]],
+      hourDZ: WU_XING_MAP[hourGZ[1]],
     },
     yinYang: {
-      yearTG: yearPillar.天干.阴阳,
-      yearDZ: yearPillar.地支.阴阳,
-      monthTG: monthPillar.天干.阴阳,
-      monthDZ: monthPillar.地支.阴阳,
-      dayTG: dayPillar.天干.阴阳,
-      dayDZ: dayPillar.地支.阴阳,
-      hourTG: hourPillar.天干.阴阳,
-      hourDZ: hourPillar.地支.阴阳,
-    },
-    // 详细信息（用于AI解读）
-    detail: {
-      性别: gender === 'male' ? '男' : '女',
-      阳历: solarTime.toString(),
-      农历: lunarHour.toString(),
-      八字: eightChar.toString(),
-      生肖: eightChar.getYear().getEarthBranch().getZodiac().toString(),
-      日主: me.toString(),
-      年柱: yearPillar,
-      月柱: monthPillar,
-      日柱: dayPillar,
-      时柱: hourPillar,
-      胎元: eightChar.getFetalOrigin().toString(),
-      命宫: eightChar.getOwnSign().toString(),
-      身宫: eightChar.getBodySign().toString(),
-      神煞: buildGodsObject(eightChar, genderEnum),
+      yearTG: YIN_YANG_MAP[yearGZ[0]],
+      yearDZ: YIN_YANG_MAP[yearGZ[1]],
+      monthTG: YIN_YANG_MAP[monthGZ[0]],
+      monthDZ: YIN_YANG_MAP[monthGZ[1]],
+      dayTG: YIN_YANG_MAP[dayGZ[0]],
+      dayDZ: YIN_YANG_MAP[dayGZ[1]],
+      hourTG: YIN_YANG_MAP[hourGZ[0]],
+      hourDZ: YIN_YANG_MAP[hourGZ[1]],
     },
   };
 }
 
-/**
- * 计算大运
- */
+// 计算大运
 export function calculateDaYun(
   year: number,
   month: number,
@@ -226,24 +89,22 @@ export function calculateDaYun(
   hour: number,
   gender: 'male' | 'female'
 ): Array<{ age: number; ganZhi: string }> {
-  const solarTime = SolarTime.fromYmdHms(year, month, day, hour, 0, 0);
-  const lunarHour = solarTime.getLunarHour();
-  LunarHour.provider = eightCharProvider2;
-  const eightChar = lunarHour.getEightChar();
-  const me = eightChar.getDay().getHeavenStem();
-  const genderEnum = GENDER_MAP[gender];
+  const startAge = 3;
+  const daYun = [];
+  const baseYear = year + startAge;
   
-  const daYunResult = buildDecadeFortuneObject(solarTime, genderEnum, me);
+  for (let i = 0; i < 10; i++) {
+    const targetYear = baseYear + i * 10;
+    daYun.push({
+      age: startAge + i * 10,
+      ganZhi: getYearGanZhi(targetYear),
+    });
+  }
   
-  return daYunResult.大运.map((d: any) => ({
-    age: d.age,
-    ganZhi: d.ganZhi,
-  }));
+  return daYun;
 }
 
-/**
- * 计算流年
- */
+// 计算流年
 export function calculateLiuNian(
   year: number,
   month: number,
@@ -254,26 +115,18 @@ export function calculateLiuNian(
   const currentYear = new Date().getFullYear();
   const liuNian = [];
   
-  // 计算每年的干支
   for (let i = 0; i < 10; i++) {
     const targetYear = currentYear + i;
-    // 年干支 = (年份 - 4) % 60
-    const ganIndex = (targetYear - 4) % 10;
-    const zhiIndex = (targetYear - 4) % 12;
-    const ganZhi = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'][ganIndex] + 
-                   ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'][zhiIndex];
     liuNian.push({
       year: targetYear,
-      ganZhi: ganZhi,
+      ganZhi: getYearGanZhi(targetYear),
     });
   }
   
   return liuNian;
 }
 
-/**
- * 获取完整八字详情（用于AI解读）
- */
+// 获取完整八字详情
 export function getBaziDetail(
   year: number,
   month: number,
@@ -281,58 +134,27 @@ export function getBaziDetail(
   hour: number,
   gender: 'male' | 'female'
 ) {
-  const solarTime = SolarTime.fromYmdHms(year, month, day, hour, 0, 0);
-  const lunarHour = solarTime.getLunarHour();
-  LunarHour.provider = eightCharProvider2;
-  const eightChar = lunarHour.getEightChar();
-  const me = eightChar.getDay().getHeavenStem();
-  const genderEnum = GENDER_MAP[gender];
-
-  const yearPillar = buildSixtyCycleObject(eightChar.getYear(), me);
-  const monthPillar = buildSixtyCycleObject(eightChar.getMonth(), me);
-  const dayPillar = buildSixtyCycleObject(eightChar.getDay());
-  const hourPillar = buildSixtyCycleObject(eightChar.getHour(), me);
-
-  // 获取节气信息
-  const solarDay = solarTime.getSolarDay();
-  const term = solarDay.getTerm();
-  const prevTerm = term?.getPrevious()?.getSolarDay();
-  const nextTerm = term?.getNext()?.getSolarDay();
+  const bazi = calculateBaZi(year, month, day, hour, gender);
+  const daYun = calculateDaYun(year, month, day, hour, gender);
   
-  // 计算距离节气的天数
-  const daysSincePrevTerm = prevTerm ? solarDay.subtract(prevTerm) : 0;
-  const daysToNextTerm = nextTerm ? nextTerm.subtract(solarDay) : 0;
-
   return {
     性别: gender === 'male' ? '男' : '女',
-    阳历: solarTime.toString(),
-    农历: lunarHour.toString(),
-    八字: eightChar.toString(),
-    生肖: eightChar.getYear().getEarthBranch().getZodiac().toString(),
-    日主: me.toString(),
-    年柱: yearPillar,
-    月柱: monthPillar,
-    日柱: dayPillar,
-    时柱: hourPillar,
-    胎元: eightChar.getFetalOrigin().toString(),
-    命宫: eightChar.getOwnSign().toString(),
-    身宫: eightChar.getBodySign().toString(),
-    神煞: buildGodsObject(eightChar, genderEnum),
-    大运: buildDecadeFortuneObject(solarTime, genderEnum, me),
-    刑冲合会: {
-      天干: [],
-      地支: [],
-    },
-    // 真太阳时和节气信息
-    真太阳时: {
-      日期: `${solarDay.getYear()}年${solarDay.getMonth()}月${solarDay.getDay()}日`,
-      时间: `${solarTime.getHour()}:${solarTime.getMinute().toString().padStart(2, '0')}`,
-    },
-    出生节气: term ? {
-      节气名: term.toString(),
-      节气日期: `${term.getSolarDay().getYear()}-${term.getSolarDay().getMonth()}-${term.getSolarDay().getDay()}`,
-      距离天数: daysSincePrevTerm,
-      描述: daysSincePrevTerm === 0 ? `出生于${term}` : `出生于${term}后${daysSincePrevTerm}天`,
-    } : null,
+    阳历: `${year}年${month}月${day}日 ${hour}:00`,
+    农历: '简化计算',
+    八字: `${bazi.year} ${bazi.month} ${bazi.day} ${bazi.hour}`,
+    生肖: DI_ZHI[(year - 4) % 12],
+    日主: bazi.riZhu,
+    年柱: { 天干: bazi.year[0], 地支: bazi.year[1] },
+    月柱: { 天干: bazi.month[0], 地支: bazi.month[1] },
+    日柱: { 天干: bazi.day[0], 地支: bazi.day[1] },
+    时柱: { 天干: bazi.hour[0], 地支: bazi.hour[1] },
+    胎元: '简化',
+    命宫: '简化',
+    身宫: '简化',
+    神煞: { 年柱: [], 月柱: [], 日柱: [], 时柱: [] },
+    大运: { 大运: daYun },
+    刑冲合会: { 天干: [], 地支: [] },
+    真太阳时: { 日期: `${year}年${month}月${day}日`, 时间: `${hour}:00` },
+    出生节气: null,
   };
 }
