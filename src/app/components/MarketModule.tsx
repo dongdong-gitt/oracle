@@ -91,7 +91,16 @@ export default function MarketModule({ type }: MarketModuleProps) {
 
   // 生成八字建议
   const generateBaziAdvice = (marketData: MarketData) => {
-    if (!baziResult?.detail) return;
+    if (!baziResult?.detail) {
+      // 没有八字数据时显示默认建议
+      setAdvice({
+        score: 50,
+        advice: '建议先输入八字获取个性化建议',
+        direction: 'hold',
+        reason: '输入生辰八字后，系统将根据您的五行喜用神提供个性化投资建议。',
+      });
+      return;
+    }
     
     const detail = baziResult.detail;
     const wuxing = detail.五行统计;
@@ -221,7 +230,21 @@ export default function MarketModule({ type }: MarketModuleProps) {
 
         {/* 走势图占位 - 后续可接入K线图 */}
         <div className="h-48 bg-black/20 rounded-2xl flex items-center justify-center">
-          <p className="text-white/30">K线图接入中...</p>
+          {data ? (
+            <div className="text-center">
+              <div className="text-white/50 text-sm mb-2">今日行情</div>
+              <div className="flex items-center justify-center gap-4 text-sm">
+                <div className="text-white/70">
+                  最高: <span className="text-green-400">{data.high?.toFixed(2) || '-'}</span>
+                </div>
+                <div className="text-white/70">
+                  最低: <span className="text-red-400">{data.low?.toFixed(2) || '-'}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-white/30">K线图接入中...</p>
+          )}
         </div>
 
         {/* 更新时间 */}
