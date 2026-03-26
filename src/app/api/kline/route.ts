@@ -196,27 +196,30 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const aiAnalysis =
-      (await generateAiAnalysis({
-        name,
-        gender,
-        bazi,
-        daYun,
-        detail,
-      })) || {
+    let aiAnalysis = await generateAiAnalysis({
+      name,
+      gender,
+      bazi,
+      daYun,
+      detail,
+    });
+
+    if (!aiAnalysis) {
+      aiAnalysis = {
         mingZhu: `${detail?.日主 || bazi.riZhu}日主。性格多有主见，做事重逻辑与效率，宜在长期主义中稳步积累。`,
         career: `${currentYear}年前后适合深耕专业能力，抓住能被量化验证的机会，避免频繁换赛道。`,
         wealth: '以稳健为主，分散配置、控制杠杆，优先构建现金流与风险缓冲。',
         love: '感情宜慢热与沟通，重视边界与承诺，避免在压力期做冲动决定。',
         health: '保持规律作息，注意压力管理与基础代谢，建议每周固定运动。',
-        currentPeriod: `当前大运节奏以"${daYun?.[0]?.ganZhi || '未知'}"起步，整体宜稳中求进。`,
+        currentPeriod: `当前正行${currentDaYun?.ganZhi || '未知'}大运（${currentDaYun?.开始年龄}-${currentDaYun?.结束年龄}岁）。大运地支${currentDaYun?.ganZhi?.[1] || ''}金为日主强根，能一定程度帮身，事业财运较前运有起色。`,
         thisYear: `${currentYear}年整体起伏可控，关键在于节奏与执行，不宜过度冒进。`,
-        advice: '1) 先做减法：砍掉低价值消耗\n2) 做可复利的事：技能/资产/关系\n3) 重大决策写下来，按数据复盘',
-        score: {
-          ...baseScores,
-          overall: Math.round((baseScores.career + baseScores.wealth + baseScores.love + baseScores.health) / 4),
-        },
+        advice: '1. 事业：聚焦核心技能，在专业领域建立不可替代性\n2. 财务：以守成为主，强制储蓄，谨慎对待高风险投资\n3. 情感：主动参与社交，但勿急于求成\n4. 健康：制定规律的锻炼计划，重点强化心肺功能\n5. 人际：多结交年长贵人，避免与小人纠缠\n6. 投资：优先选择稳健型理财产品',
+        score: baseScores,
       };
+    } else {
+      // 强制使用算法计算的分数，覆盖DeepSeek返回的分数
+      aiAnalysis.score = baseScores;
+    }
 
     return NextResponse.json({
       success: true,
