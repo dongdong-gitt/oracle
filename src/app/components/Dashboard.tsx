@@ -20,7 +20,7 @@ import DreamInterpreter from './DreamInterpreter';
 import MarketPulse from './MarketPulse';
 import WuXingMatrix from './WuXingMatrix';
 import CycleTools from './CycleTools';
-import WhitePaper from './WhitePaper';
+import MarketModule from './MarketModule';
 import AIAdvisors from './AIAdvisors';
 import Membership from './Membership';
 import { useUser } from '../context/UserContext';
@@ -69,7 +69,7 @@ export function t(key: string, lang: Language): string {
   return translations[key]?.[lang] || key;
 }
 
-type TabType = 'dashboard' | 'bazi' | 'guidance' | 'soulmate' | 'liuyao' | 'dream' | 'market' | 'matrix' | 'cycles' | 'advisors' | 'membership';
+type TabType = 'dashboard' | 'bazi' | 'guidance' | 'soulmate' | 'liuyao' | 'dream' | 'market' | 'market-sh' | 'market-nasdaq' | 'market-btc' | 'market-gold' | 'matrix' | 'cycles' | 'advisors' | 'membership';
 type StatusPhase = 'expansion' | 'consolidation' | 'recovery';
 
 // 能量环组件
@@ -223,6 +223,7 @@ export default function Dashboard() {
         { id: 'matrix', label: t('matrix', lang), icon: Target },
         { id: 'liuyao', label: t('liuyao', lang), icon: Coins },
         { id: 'soulmate', label: t('soulmate', lang), icon: Heart },
+        { id: 'dream', label: lang === 'zh' ? '解梦' : 'Dream', icon: Moon },
       ]
     },
     {
@@ -231,16 +232,12 @@ export default function Dashboard() {
       color: 'from-neon-cyan to-blue-500',
       items: [
         { id: 'market', label: t('market', lang), icon: TrendingUp },
+        { id: 'market-sh', label: lang === 'zh' ? '上证指数' : 'SSE', icon: TrendingUp },
+        { id: 'market-nasdaq', label: lang === 'zh' ? '纳斯达克' : 'NASDAQ', icon: TrendingUp },
+        { id: 'market-btc', label: lang === 'zh' ? '比特币' : 'Bitcoin', icon: TrendingUp },
+        { id: 'market-gold', label: lang === 'zh' ? '黄金' : 'Gold', icon: TrendingUp },
         { id: 'advisors', label: t('advisors', lang), icon: MessageCircle },
         { id: 'membership', label: t('membership', lang), icon: Crown },
-      ]
-    },
-    {
-      title: t('dream', lang),
-      icon: Moon,
-      color: 'from-indigo-400 to-blue-500',
-      items: [
-        { id: 'dream', label: lang === 'zh' ? '解梦分析' : 'Dream Analysis', icon: Moon },
       ]
     },
   ];
@@ -516,6 +513,10 @@ export default function Dashboard() {
             {activeTab === 'liuyao' && <motion.div key="liuyao" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><LiuYao /></motion.div>}
             {activeTab === 'dream' && <motion.div key="dream" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><DreamInterpreter /></motion.div>}
             {activeTab === 'market' && <motion.div key="market" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><MarketPulse /></motion.div>}
+            {activeTab === 'market-sh' && <motion.div key="market-sh" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><MarketModule type="sh" /></motion.div>}
+            {activeTab === 'market-nasdaq' && <motion.div key="market-nasdaq" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><MarketModule type="nasdaq" /></motion.div>}
+            {activeTab === 'market-btc' && <motion.div key="market-btc" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><MarketModule type="btc" /></motion.div>}
+            {activeTab === 'market-gold' && <motion.div key="market-gold" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><MarketModule type="gold" /></motion.div>}
             {activeTab === 'matrix' && <motion.div key="matrix" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><WuXingMatrix /></motion.div>}
             {activeTab === 'cycles' && <motion.div key="cycles" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><CycleTools /></motion.div>}
             {activeTab === 'advisors' && <motion.div key="advisors" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><AIAdvisors /></motion.div>}
