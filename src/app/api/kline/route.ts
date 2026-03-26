@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateBaZi, calculateDaYun, calculateLiuNian, getBaziDetail } from '@/app/lib/bazi';
 
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
+const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 
 type DeepseekMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
