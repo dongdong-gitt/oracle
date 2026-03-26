@@ -59,7 +59,7 @@ export const translations: Translations = {
   market: { zh: '市场', en: 'Market' },
   matrix: { zh: '五行', en: 'Elements' },
   cycles: { zh: '周期', en: 'Cycles' },
-  whitepaper: { zh: '研报', en: 'Research' },
+
   advisors: { zh: '顾问', en: 'Advisors' },
   membership: { zh: '会员', en: 'Pro' },
   downloadApp: { zh: '下载 App', en: 'Download App' },
@@ -69,7 +69,7 @@ export function t(key: string, lang: Language): string {
   return translations[key]?.[lang] || key;
 }
 
-type TabType = 'dashboard' | 'bazi' | 'guidance' | 'soulmate' | 'liuyao' | 'dream' | 'market' | 'matrix' | 'cycles' | 'whitepaper' | 'advisors' | 'membership';
+type TabType = 'dashboard' | 'bazi' | 'guidance' | 'soulmate' | 'liuyao' | 'dream' | 'market' | 'matrix' | 'cycles' | 'advisors' | 'membership';
 type StatusPhase = 'expansion' | 'consolidation' | 'recovery';
 
 // 能量环组件
@@ -212,7 +212,6 @@ export default function Dashboard() {
         { id: 'dashboard', label: lang === 'zh' ? '人生行情' : 'Life Chart', icon: TrendingUp },
         { id: 'guidance', label: t('guidance', lang), icon: Sun },
         { id: 'cycles', label: t('cycles', lang), icon: Activity },
-        { id: 'whitepaper', label: t('whitepaper', lang), icon: BookOpen },
       ]
     },
     {
@@ -519,7 +518,6 @@ export default function Dashboard() {
             {activeTab === 'market' && <motion.div key="market" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><MarketPulse /></motion.div>}
             {activeTab === 'matrix' && <motion.div key="matrix" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><WuXingMatrix /></motion.div>}
             {activeTab === 'cycles' && <motion.div key="cycles" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><CycleTools /></motion.div>}
-            {activeTab === 'whitepaper' && <motion.div key="whitepaper" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><WhitePaper /></motion.div>}
             {activeTab === 'advisors' && <motion.div key="advisors" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><AIAdvisors /></motion.div>}
             {activeTab === 'membership' && <motion.div key="membership" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><Membership /></motion.div>}
           </AnimatePresence>
