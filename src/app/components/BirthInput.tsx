@@ -99,6 +99,9 @@ export default function BirthInput({ onSubmit }: BirthInputProps) {
       totalDelay += ANALYSIS_STEPS[i].duration;
     }
 
+    // 先清除旧数据，确保使用新计算的分数
+    setBaziResult(null);
+
     // 所有动画完成后跳转（不等待API）
     setTimeout(() => {
       onSubmit();
@@ -124,6 +127,7 @@ export default function BirthInput({ onSubmit }: BirthInputProps) {
     .then(response => response.json())
     .then(result => {
       if (result.success) {
+        console.log('API返回的分数:', result.data.aiAnalysis?.score);
         setBaziResult({
           bazi: result.data.bazi,
           detail: result.data.detail,
