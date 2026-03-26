@@ -38,16 +38,24 @@ interface BaziPanProps {
         起运年龄: number;
         大运: Array<{
           age: number;
-          干支: string;
+          ganZhi: string;
+          大运名称?: string;
           开始年份: number;
-          结束: number;
-          天干十神: string;
-          地支十神: string[];
+          结束年份: number;
+          天干十神?: string;
+          地支十神?: string[];
         }>;
       };
       刑冲合会?: {
         天干?: string[];
         地支?: string[];
+      };
+      五行统计?: {
+        金: number;
+        木: number;
+        水: number;
+        火: number;
+        土: number;
       };
       真太阳时?: {
         日期: string;
@@ -109,6 +117,62 @@ const SHISHEN_COLORS: Record<string, string> = {
   '偏印': 'text-blue-300',
   '正印': 'text-blue-400',
 };
+
+// 五行颜色
+const WUXING_BG_COLORS: Record<string, string> = {
+  '金': 'bg-amber-400/20 text-amber-300 border-amber-400/30',
+  '木': 'bg-green-400/20 text-green-300 border-green-400/30',
+  '水': 'bg-blue-400/20 text-blue-300 border-blue-400/30',
+  '火': 'bg-red-400/20 text-red-300 border-red-400/30',
+  '土': 'bg-yellow-400/20 text-yellow-300 border-yellow-400/30',
+};
+
+// 五行统计组件
+function WuXingStats({ stats }: { stats?: Record<string, number> }) {
+  if (!stats) return null;
+  const items = [
+    { name: '金', count: stats.金, color: 'from-amber-400 to-yellow-500' },
+    { name: '木', count: stats.木, color: 'from-green-400 to-emerald-500' },
+    { name: '水', count: stats.水, color: 'from-blue-400 to-cyan-500' },
+    { name: '火', count: stats.火, color: 'from-red-400 to-orange-500' },
+    { name: '土', count: stats.土, color: 'from-yellow-400 to-amber-500' },
+  ];
+  const maxCount = Math.max(...items.map(i => i.count), 1);
+
+  return (
+    <div className="grid grid-cols-5 gap-2">
+      {items.map((item) => (
+        <div key={item.name} className="text-center">
+          <div className="relative w-12 h-12 mx-auto mb-1">
+            <svg className="w-12 h-12 transform -rotate-90">
+              <circle cx="24" cy="24" r="20" stroke="rgba(255,255,255,0.1)" strokeWidth="4" fill="none" />
+              <circle
+                cx="24"
+                cy="24"
+                r="20"
+                stroke={`url(#wx-${item.name})`}
+                strokeWidth="4"
+                fill="none"
+                strokeDasharray={`${(item.count / maxCount) * 125.6} 125.6`}
+                strokeLinecap="round"
+              />
+              <defs>
+                <linearGradient id={`wx-${item.name}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor={item.color.includes('amber') ? '#fbbf24' : item.color.includes('green') ? '#4ade80' : item.color.includes('blue') ? '#60a5fa' : item.color.includes('red') ? '#f87171' : '#facc15'} />
+                  <stop offset="100%" stopColor={item.color.includes('amber') ? '#f59e0b' : item.color.includes('green') ? '#10b981' : item.color.includes('blue') ? '#06b6d4' : item.color.includes('red') ? '#f97316' : '#d97706'} />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-sm font-bold">{item.name}</span>
+            </div>
+          </div>
+          <div className="text-xs text-gray-400">{item.count}个</div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function BaZiPan({ data, birthData }: BaziPanProps) {
   const { detail, aiAnalysis } = data;
@@ -366,6 +430,22 @@ export default function BaZiPan({ data, birthData }: BaziPanProps) {
           </motion.div>
         )}
 
+        {/* 五行统计 */}
+        {detail.五行统计 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="bg-[#1a1a2e]/50 rounded-2xl border border-white/10 p-4"
+          >
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <span className="w-1 h-5 bg-purple-400 rounded-full" />
+              五行分布
+            </h2>
+            <WuXingStats stats={detail.五行统计} />
+          </motion.div>
+        )}
+
         {/* 大运 */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -384,24 +464,24 @@ export default function BaZiPan({ data, birthData }: BaziPanProps) {
             {detail.大运.大运.slice(0, 8).map((dy, i) => (
               <div
                 key={i}
-                className={`flex-shrink-0 w-20 p-3 rounded-xl text-center ${
-                  dy.开始年份 <= currentYear && dy.结束 >= currentYear
+                className={`flex-shrink-0 w-24 p-3 rounded-xl text-center ${
+                  dy.开始年份 <= currentYear && dy.结束年份 >= currentYear
                     ? 'bg-cyan-500/20 border border-cyan-500/50'
                     : 'bg-white/5'
                 }`}
               >
                 <div className="text-xs text-gray-500 mb-1">{dy.age}岁</div>
-                <div className="text-lg font-bold text-white">{dy.干支}</div>
-                <div className="text-xs text-gray-400">{dy.开始年份}-{dy.结束}</div>
+                <div className="text-base font-bold text-white">{dy.大运名称 || `${dy.ganZhi}大运`}</div>
+                <div className="text-xs text-gray-400">{dy.开始年份}-{dy.结束年份}</div>
               </div>
             ))}
           </div>
           {currentDaYun && (
             <div className="mt-4 p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
               <div className="text-sm text-cyan-400 mb-1">当前大运</div>
-              <div className="text-lg font-bold">{currentDaYun.干支}</div>
+              <div className="text-lg font-bold">{currentDaYun.大运名称 || `${currentDaYun.ganZhi}大运`}</div>
               <div className="text-sm text-gray-400">
-                {currentDaYun.天干十神} · {currentDaYun.地支十神.join(' ')}
+                {currentDaYun.天干十神 || ''} {currentDaYun.地支十神 ? `· ${currentDaYun.地支十神.join(' ')}` : ''}
               </div>
             </div>
           )}
@@ -544,9 +624,12 @@ export default function BaZiPan({ data, birthData }: BaziPanProps) {
               {aiAnalysis.advice && (
                 <div className="p-4 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
                   <h3 className="text-cyan-400 font-semibold mb-3">综合建议</h3>
-                  <div className="space-y-2">
-                    {aiAnalysis.advice.split('\\n').map((line, i) => (
-                      <p key={i} className="text-gray-300 leading-relaxed">{line}</p>
+                  <div className="space-y-3">
+                    {aiAnalysis.advice.split(/\\n|\n/).filter(line => line.trim()).map((line, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="text-cyan-400 font-bold mt-0.5">{line.match(/^\d+\./)?.[0] || `${i + 1}.`}</span>
+                        <p className="text-gray-300 leading-relaxed flex-1">{line.replace(/^\d+\.\s*/, '')}</p>
+                      </div>
                     ))}
                   </div>
                 </div>

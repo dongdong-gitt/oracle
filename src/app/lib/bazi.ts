@@ -1,28 +1,33 @@
 /**
  * 八字排盘计算模块
- * 基于 tyme4ts 权威算法，带降级处理
+ * 基于 tyme4ts + cantian-tymext 权威算法
  */
 
-// 尝试导入 tyme4ts，如果失败则使用降级方案
+// 尝试导入库
 let tyme4ts: any = null;
+let cantianTymext: any = null;
+
 try {
   tyme4ts = require('tyme4ts');
 } catch (e) {
-  console.warn('tyme4ts 加载失败，使用降级方案');
+  console.warn('tyme4ts 加载失败');
 }
 
-// 天干
+try {
+  cantianTymext = require('cantian-tymext');
+} catch (e) {
+  console.warn('cantian-tymext 加载失败');
+}
+
+// 天干地支基础数据
 const TIAN_GAN = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
-// 地支
 const DI_ZHI = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
-// 五行
 const WU_XING_MAP: Record<string, string> = {
   '甲': '木', '乙': '木', '丙': '火', '丁': '火', '戊': '土',
   '己': '土', '庚': '金', '辛': '金', '壬': '水', '癸': '水',
   '子': '水', '丑': '土', '寅': '木', '卯': '木', '辰': '土',
   '巳': '火', '午': '火', '未': '土', '申': '金', '酉': '金', '戌': '土', '亥': '水',
 };
-// 阴阳
 const YIN_YANG_MAP: Record<string, string> = {
   '甲': '阳', '乙': '阴', '丙': '阳', '丁': '阴', '戊': '阳',
   '己': '阴', '庚': '阳', '辛': '阴', '壬': '阳', '癸': '阴',
@@ -30,24 +35,66 @@ const YIN_YANG_MAP: Record<string, string> = {
   '巳': '阴', '午': '阳', '未': '阴', '申': '阳', '酉': '阴', '戌': '阳', '亥': '阴',
 };
 
-// 年干支计算
-function getYearGanZhi(year: number): string {
-  const ganIndex = (year - 4) % 10;
-  const zhiIndex = (year - 4) % 12;
-  return TIAN_GAN[ganIndex] + DI_ZHI[zhiIndex];
+// 五行颜色
+const WU_XING_COLOR: Record<string, string> = {
+  '金': '#FFD700',
+  '木': '#228B22',
+  '水': '#1E90FF',
+  '火': '#FF4500',
+  '土': '#D2691E',
+};
+
+// 计算五行数量
+function calculateWuXingCount(pillars: any[]) {
+  const count: Record<string, number> = { '金': 0, '木': 0, '水': 0, '火': 0, '土': 0 };
+  pillars.forEach(p => {
+    count[p.天干.五行]++;
+    count[p.地支.五行]++;
+    if (p.地支.藏干?.主气) count[WU_XING_MAP[p.地支.藏干.主气.天干]]++;
+    if (p.地支.藏干?.中气) count[WU_XING_MAP[p.地支.藏干.中气.天干]]++;
+    if (p.地支.藏干?.余气) count[WU_XING_MAP[p.地支.藏干.余气.天干]]++;
+  });
+  return count;
+}
+
+// 计算神煞
+function calculateShenSha(eightChar: any, gender: number) {
+  if (!cantianTymext?.getShen) return { 年柱: [], 月柱: [], 日柱: [], 时柱: [] };
+  try {
+    const gods = cantianTymext.getShen(eightChar.toString(), gender);
+    return {
+      年柱: gods[0] || [],
+      月柱: gods[1] || [],
+      日柱: gods[2] || [],
+      时柱: gods[3] || [],
+    };
+  } catch (e) {
+    return { 年柱: [], 月柱: [], 日柱: [], 时柱: [] };
+  }
+}
+
+// 计算刑冲合会
+function calculateRelations(eightChar: any) {
+  if (!cantianTymext?.calculateRelation) return { 天干: [], 地支: [] };
+  try {
+    const relations = cantianTymext.calculateRelation(eightChar.toString());
+    return {
+      天干: relations.tg || [],
+      地支: relations.dz || [],
+    };
+  } catch (e) {
+    return { 天干: [], 地支: [] };
+  }
 }
 
 // 使用 tyme4ts 计算八字
 function calculateWithTyme4ts(year: number, month: number, day: number, hour: number, gender: 'male' | 'female') {
   if (!tyme4ts) throw new Error('tyme4ts not available');
   
-  const { SolarTime, LunarHour, Gender, DefaultEightCharProvider, LunarSect2EightCharProvider, ChildLimit } = tyme4ts;
+  const { SolarTime, LunarHour, Gender, LunarSect2EightCharProvider, ChildLimit } = tyme4ts;
   
   const eightCharProvider2 = new LunarSect2EightCharProvider();
-  const GENDER_MAP: Record<string, any> = {
-    'male': Gender.MAN,
-    'female': Gender.WOMAN,
-  };
+  const GENDER_MAP: Record<string, any> = { 'male': Gender.MAN, 'female': Gender.WOMAN };
 
   const solarTime = SolarTime.fromYmdHms(year, month, day, hour, 0, 0);
   const lunarHour = solarTime.getLunarHour();
@@ -99,6 +146,9 @@ function calculateWithTyme4ts(year: number, month: number, day: number, hour: nu
   const dayPillar = buildSixtyCycleObject(eightChar.getDay());
   const hourPillar = buildSixtyCycleObject(eightChar.getHour(), me);
 
+  // 计算五行
+  const wuXingCount = calculateWuXingCount([yearPillar, monthPillar, dayPillar, hourPillar]);
+
   // 计算大运
   const childLimit = ChildLimit.fromSolarTime(solarTime, genderEnum);
   let decadeFortune = childLimit.getStartDecadeFortune();
@@ -106,9 +156,11 @@ function calculateWithTyme4ts(year: number, month: number, day: number, hour: nu
   
   for (let i = 0; i < 10; i++) {
     const sixtyCycle = decadeFortune.getSixtyCycle();
+    const ganZhi = sixtyCycle.toString();
     daYunData.push({
       age: decadeFortune.getStartAge(),
-      ganZhi: sixtyCycle.toString(),
+      ganZhi,
+      大运名称: `${ganZhi}大运`,
       开始年份: decadeFortune.getStartSixtyCycleYear().getYear(),
       结束年份: decadeFortune.getEndSixtyCycleYear().getYear(),
       开始年龄: decadeFortune.getStartAge(),
@@ -118,6 +170,7 @@ function calculateWithTyme4ts(year: number, month: number, day: number, hour: nu
   }
 
   const startDate = childLimit.getEndTime();
+  const genderNum = gender === 'male' ? 1 : 0;
 
   return {
     bazi: {
@@ -161,108 +214,28 @@ function calculateWithTyme4ts(year: number, month: number, day: number, hour: nu
       胎元: eightChar.getFetalOrigin().toString(),
       命宫: eightChar.getOwnSign().toString(),
       身宫: eightChar.getBodySign().toString(),
-      神煞: { 年柱: [], 月柱: [], 日柱: [], 时柱: [] },
+      神煞: calculateShenSha(eightChar, genderNum),
       大运: {
-        起运日期: `${startDate.getYear()}-${startDate.getMonth()}-${startDate.getDay()}`,
+        起运日期: `${startDate.getYear()}-${String(startDate.getMonth()).padStart(2, '0')}-${String(startDate.getDay()).padStart(2, '0')}`,
         起运年龄: childLimit.getStartDecadeFortune().getStartAge(),
         大运: daYunData,
       },
-      刑冲合会: { 天干: [], 地支: [] },
+      刑冲合会: calculateRelations(eightChar),
+      五行统计: wuXingCount,
       真太阳时: { 日期: `${year}年${month}月${day}日`, 时间: `${hour}:00` },
       出生节气: null,
     },
-    daYun: daYunData.map((d: any) => ({ age: d.age, ganZhi: d.ganZhi })),
-  };
-}
-
-// 降级方案
-function calculateFallback(year: number, month: number, day: number, hour: number, gender: 'male' | 'female') {
-  const yearGZ = getYearGanZhi(year);
-  const monthOffset = (month + 1) % 12;
-  const monthGZ = TIAN_GAN[(year - 4 + monthOffset) % 10] + DI_ZHI[monthOffset];
-  const dayOffset = Math.floor((new Date(year, month - 1, day).getTime() - new Date(1900, 0, 31).getTime()) / 86400000) % 60;
-  const dayGZ = TIAN_GAN[dayOffset % 10] + DI_ZHI[dayOffset % 12];
-  const hourZhiIndex = Math.floor((hour + 1) / 2) % 12;
-  const dayGanIndex = dayOffset % 10;
-  const hourGanIndex = (dayGanIndex * 2 + hourZhiIndex) % 10;
-  const hourGZ = TIAN_GAN[hourGanIndex] + DI_ZHI[hourZhiIndex];
-
-  const bazi = {
-    year: yearGZ,
-    month: monthGZ,
-    day: dayGZ,
-    hour: hourGZ,
-    riZhu: dayGZ[0],
-    wuXing: {
-      yearTG: WU_XING_MAP[yearGZ[0]],
-      yearDZ: WU_XING_MAP[yearGZ[1]],
-      monthTG: WU_XING_MAP[monthGZ[0]],
-      monthDZ: WU_XING_MAP[monthGZ[1]],
-      dayTG: WU_XING_MAP[dayGZ[0]],
-      dayDZ: WU_XING_MAP[dayGZ[1]],
-      hourTG: WU_XING_MAP[hourGZ[0]],
-      hourDZ: WU_XING_MAP[hourGZ[1]],
-    },
-    yinYang: {
-      yearTG: YIN_YANG_MAP[yearGZ[0]],
-      yearDZ: YIN_YANG_MAP[yearGZ[1]],
-      monthTG: YIN_YANG_MAP[monthGZ[0]],
-      monthDZ: YIN_YANG_MAP[monthGZ[1]],
-      dayTG: YIN_YANG_MAP[dayGZ[0]],
-      dayDZ: YIN_YANG_MAP[dayGZ[1]],
-      hourTG: YIN_YANG_MAP[hourGZ[0]],
-      hourDZ: YIN_YANG_MAP[hourGZ[1]],
-    },
-  };
-
-  const daYunData = [];
-  const startAge = 3;
-  for (let i = 0; i < 10; i++) {
-    const targetYear = year + startAge + i * 10;
-    daYunData.push({
-      age: startAge + i * 10,
-      ganZhi: getYearGanZhi(targetYear),
-      开始年份: targetYear,
-      结束年份: targetYear + 9,
-      开始年龄: startAge + i * 10,
-      结束年龄: startAge + i * 10 + 9,
-    });
-  }
-
-  return {
-    bazi,
-    detail: {
-      性别: gender === 'male' ? '男' : '女',
-      阳历: `${year}年${month}月${day}日 ${hour}:00`,
-      农历: '简化计算',
-      八字: `${bazi.year} ${bazi.month} ${bazi.day} ${bazi.hour}`,
-      生肖: DI_ZHI[(year - 4) % 12],
-      日主: bazi.riZhu,
-      年柱: { 天干: bazi.year[0], 地支: bazi.year[1] },
-      月柱: { 天干: bazi.month[0], 地支: bazi.month[1] },
-      日柱: { 天干: bazi.day[0], 地支: bazi.day[1] },
-      时柱: { 天干: bazi.hour[0], 地支: bazi.hour[1] },
-      胎元: '简化',
-      命宫: '简化',
-      身宫: '简化',
-      神煞: { 年柱: [], 月柱: [], 日柱: [], 时柱: [] },
-      大运: { 起运日期: '简化', 起运年龄: startAge, 大运: daYunData },
-      刑冲合会: { 天干: [], 地支: [] },
-      真太阳时: { 日期: `${year}年${month}月${day}日`, 时间: `${hour}:00` },
-      出生节气: null,
-    },
-    daYun: daYunData.map(d => ({ age: d.age, ganZhi: d.ganZhi })),
+    daYun: daYunData,
   };
 }
 
 // 主函数
 export function calculateBaZi(year: number, month: number, day: number, hour: number, gender: 'male' | 'female') {
   try {
-    const result = calculateWithTyme4ts(year, month, day, hour, gender);
-    return result.bazi;
+    return calculateWithTyme4ts(year, month, day, hour, gender).bazi;
   } catch (e) {
-    console.warn('tyme4ts 计算失败，使用降级方案:', e);
-    return calculateFallback(year, month, day, hour, gender).bazi;
+    console.warn('tyme4ts 计算失败:', e);
+    throw e;
   }
 }
 
@@ -270,8 +243,8 @@ export function getBaziDetail(year: number, month: number, day: number, hour: nu
   try {
     return calculateWithTyme4ts(year, month, day, hour, gender).detail;
   } catch (e) {
-    console.warn('tyme4ts 计算失败，使用降级方案:', e);
-    return calculateFallback(year, month, day, hour, gender).detail;
+    console.warn('tyme4ts 计算失败:', e);
+    throw e;
   }
 }
 
@@ -279,8 +252,8 @@ export function calculateDaYun(year: number, month: number, day: number, hour: n
   try {
     return calculateWithTyme4ts(year, month, day, hour, gender).daYun;
   } catch (e) {
-    console.warn('tyme4ts 计算失败，使用降级方案:', e);
-    return calculateFallback(year, month, day, hour, gender).daYun;
+    console.warn('tyme4ts 计算失败:', e);
+    throw e;
   }
 }
 
@@ -289,7 +262,10 @@ export function calculateLiuNian(year: number, month: number, day: number, hour:
   const liuNian = [];
   for (let i = 0; i < 10; i++) {
     const targetYear = currentYear + i;
-    liuNian.push({ year: targetYear, ganZhi: getYearGanZhi(targetYear) });
+    const ganIndex = (targetYear - 4) % 10;
+    const zhiIndex = (targetYear - 4) % 12;
+    const ganZhi = TIAN_GAN[ganIndex] + DI_ZHI[zhiIndex];
+    liuNian.push({ year: targetYear, ganZhi });
   }
   return liuNian;
 }

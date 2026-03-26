@@ -30,7 +30,7 @@ async function generateAiAnalysis(params: {
   }
 
   const currentYear = new Date().getFullYear();
-  const prompt = `你是一位专业、克制且实用的八字命理顾问。请基于用户的八字与大运信息，生成“结构化 JSON”，用于前端展示。
+  const prompt = `你是一位专业、克制且实用的八字命理顾问。请基于用户的八字与大运信息，生成"结构化 JSON"，用于前端展示。
 
 用户信息：
 - 性别：${params.gender === 'male' ? '男' : '女'}
@@ -38,13 +38,14 @@ async function generateAiAnalysis(params: {
 - 八字：${params.bazi.year} ${params.bazi.month} ${params.bazi.day} ${params.bazi.hour}
 - 日主：${params.detail?.日主 || params.bazi.riZhu}
 - 当前年份：${currentYear}
-- 大运：${params.daYun.map(d => `${d.age}岁 ${d.ganZhi}`).join('；')}
+- 大运：${params.daYun.map(d => `${d.age}岁 ${d.ganZhi}大运`).join('；')}
 
 输出要求：
 - 只输出 JSON，不要 Markdown，不要多余文字
 - 字段必须齐全：mingZhu, career, wealth, love, health, currentPeriod, thisYear, advice, score
 - score 为 0-100 的整数：career, wealth, love, health, overall
 - 文风：专业但易懂，避免绝对化断言，给出可执行建议
+- advice 字段要求：每条建议必须单独一行，用\\n换行，格式为"1. 标题：内容\\n2. 标题：内容\\n3. 标题：内容"
 
 JSON 结构示例：
 {
@@ -55,7 +56,7 @@ JSON 结构示例：
   "health": "...",
   "currentPeriod": "...",
   "thisYear": "...",
-  "advice": "...",
+  "advice": "1. 事业：专注于提升专业技能\\n2. 财务：现阶段以稳健储蓄为主\\n3. 情感：多与伴侣进行务实沟通\\n4. 健康：规律作息，重点养护脾胃",
   "score": { "career": 70, "wealth": 70, "love": 70, "health": 70, "overall": 70 }
 }`;
 
@@ -180,7 +181,7 @@ export async function POST(request: NextRequest) {
         wealth: '以稳健为主，分散配置、控制杠杆，优先构建现金流与风险缓冲。',
         love: '感情宜慢热与沟通，重视边界与承诺，避免在压力期做冲动决定。',
         health: '保持规律作息，注意压力管理与基础代谢，建议每周固定运动。',
-        currentPeriod: `当前大运节奏以“${daYun?.[0]?.ganZhi || '未知'}”起步，整体宜稳中求进。`,
+        currentPeriod: `当前大运节奏以"${daYun?.[0]?.ganZhi || '未知'}"起步，整体宜稳中求进。`,
         thisYear: `${currentYear}年整体起伏可控，关键在于节奏与执行，不宜过度冒进。`,
         advice: '1) 先做减法：砍掉低价值消耗\n2) 做可复利的事：技能/资产/关系\n3) 重大决策写下来，按数据复盘',
         score: {
