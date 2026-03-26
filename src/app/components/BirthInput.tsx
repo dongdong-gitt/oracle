@@ -1,244 +1,398 @@
 'use client';
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Sparkles, ChevronRight, Calendar, Clock, MapPin, User } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, MapPin, Globe, Loader2 } from 'lucide-react';
 import { Language } from './Dashboard';
+import { useUser } from '../context/UserContext';
+import { CHINA_REGIONS, COUNTRIES } from '../lib/chinaRegions';
 
 interface BirthInputProps {
   onSubmit: () => void;
   lang: Language;
 }
 
-export default function BirthInput({ onSubmit, lang }: BirthInputProps) {
-  const [step, setStep] = useState(0);
+// 解析步骤
+const ANALYSIS_STEPS = [
+  { text: '正在连接宇宙数据库...', duration: 800 },
+  { text: '读取生辰八字...', duration: 1000 },
+  { text: '计算天干地支...', duration: 1000 },
+  { text: '分析五行能量...', duration: 1200 },
+  { text: '推演大运流年...', duration: 1500 },
+  { text: '生成人生K线...', duration: 1200 },
+  { text: '正在解锁命运密码...', duration: 1000 },
+];
+
+export default function BirthInput({ onSubmit }: BirthInputProps) {
+  const { setBirthData, setBaziResult } = useUser();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [analysisText, setAnalysisText] = useState('');
   const [formData, setFormData] = useState({
-    name: '',
-    birthDate: '',
-    birthTime: '',
-    birthPlace: '',
+    name: '王冬',
+    birthDate: '1995-12-25',
+    birthTime: '10:15',
+    country: '中国',
+    province: '安徽省',
+    city: '安庆市',
+    district: '迎江区',
+    foreignLocation: '',
     gender: 'male' as 'male' | 'female'
   });
 
-  const steps = [
-    { id: 'name', icon: User, label: { zh: '代号', en: 'Code Name' }, placeholder: { zh: '输入你的代号', en: 'Enter your code name' } },
-    { id: 'birthDate', icon: Calendar, label: { zh: '出生日期', en: 'Birth Date' }, placeholder: { zh: '选择出生日期', en: 'Select birth date' } },
-    { id: 'birthTime', icon: Clock, label: { zh: '出生时间', en: 'Birth Time' }, placeholder: { zh: '选择出生时间', en: 'Select birth time' } },
-    { id: 'birthPlace', icon: MapPin, label: { zh: '出生地点', en: 'Birth Place' }, placeholder: { zh: '输入出生地点', en: 'Enter birth place' } },
-  ];
+  const isChina = formData.country === '中国';
 
-  const handleNext = () => {
-    if (step < steps.length - 1) {
-      setStep(step + 1);
+  // 级联选择器数据
+  const provinces = Object.keys(CHINA_REGIONS);
+  const cities = formData.province ? Object.keys(CHINA_REGIONS[formData.province as keyof typeof CHINA_REGIONS]) : [];
+  const districts = formData.province && formData.city 
+    ? CHINA_REGIONS[formData.province as keyof typeof CHINA_REGIONS][formData.city as keyof typeof CHINA_REGIONS[keyof typeof CHINA_REGIONS]] || []
+    : [];
+
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, province: '', city: '', district: '', foreignLocation: '' }));
+  }, [formData.country]);
+
+  useEffect(() => {
+    if (formData.province && isChina) {
+      const firstCity = Object.keys(CHINA_REGIONS[formData.province as keyof typeof CHINA_REGIONS])[0];
+      setFormData(prev => ({ ...prev, city: firstCity, district: '' }));
+    }
+  }, [formData.province, isChina]);
+
+  useEffect(() => {
+    if (formData.city && formData.province && isChina) {
+      const districts = CHINA_REGIONS[formData.province as keyof typeof CHINA_REGIONS][formData.city as keyof typeof CHINA_REGIONS[keyof typeof CHINA_REGIONS]] || [];
+      setFormData(prev => ({ ...prev, district: districts[0] || '' }));
+    }
+  }, [formData.city, formData.province, isChina]);
+
+  // 执行解析动画和真实计算
+  const startAnalysis = async () => {
+    setIsAnalyzing(true);
+    setCurrentStep(0);
+    
+    const fullLocation = isChina 
+      ? `${formData.country}${formData.province}${formData.city}${formData.district}`
+      : `${formData.country}${formData.foreignLocation}`;
+    
+    // 先保存基本信息
+    setBirthData({
+      name: formData.name,
+      gender: formData.gender,
+      birthDate: formData.birthDate,
+      birthTime: formData.birthTime,
+      birthPlace: fullLocation,
+      country: formData.country,
+      province: formData.province,
+      city: formData.city,
+      district: formData.district,
+    });
+
+    // 解析动画步骤
+    let totalDelay = 0;
+    for (let i = 0; i < ANALYSIS_STEPS.length; i++) {
+      setTimeout(() => {
+        setCurrentStep(i);
+        setAnalysisText(ANALYSIS_STEPS[i].text);
+      }, totalDelay);
+      totalDelay += ANALYSIS_STEPS[i].duration;
+    }
+
+    // 同时进行真实计算（调用K线API获取完整分析）
+    try {
+      const [year, month, day] = formData.birthDate.split('-').map(Number);
+      const [hour] = formData.birthTime.split(':').map(Number);
+      
+      // 调用K线API，使用八字量化算法生成运势数据
+      const response = await fetch('/api/kline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          year, 
+          month, 
+          day, 
+          hour, 
+          gender: formData.gender,
+          period: '1y' // 默认显示1年（12根月K线）
+        }),
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          // 保存完整的分析结果（包含八字、AI解读、K线数据）
+          setBaziResult({
+            bazi: result.data.bazi,
+            detail: result.data.detail,
+            daYun: result.data.daYun,
+            liuNian: result.data.liuNian,
+            aiAnalysis: result.data.aiAnalysis,
+            kline: result.data.kline,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to calculate BaZi:', error);
+    }
+
+    // 所有动画完成后跳转
+    setTimeout(() => {
+      onSubmit();
+    }, totalDelay + 500);
+  };
+
+  const isFormValid = () => {
+    if (!formData.name || !formData.birthDate) return false;
+    if (isChina) {
+      return !!(formData.province && formData.city && formData.district);
     } else {
-      startAnalysis();
+      return !!formData.foreignLocation;
     }
   };
 
-  const startAnalysis = () => {
-    setIsAnalyzing(true);
-    setTimeout(() => {
-      onSubmit();
-    }, 3000);
-  };
-
-  const currentStep = steps[step];
-  const CurrentIcon = currentStep.icon;
-
+  // 神秘的解析中界面
   if (isAnalyzing) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center"
-        >
-          {/* Matrix Code Rain Effect */}
-          <div className="relative w-64 h-64 mx-auto mb-8">
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-32 h-32 rounded-full border-2 border-amber-500/30 animate-pulse"></div>
-            </div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-48 h-48 rounded-full border border-amber-500/20 animate-spin" style={{ animationDuration: '8s' }}></div>
-            </div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Sparkles className="w-16 h-16 text-amber-500 animate-pulse" />
-            </div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0f] relative overflow-hidden">
+        {/* 背景动画效果 */}
+        <div className="absolute inset-0">
+          <motion.div
+            className="absolute inset-0 opacity-20"
+            animate={{
+              background: [
+                'radial-gradient(circle at 50% 50%, rgba(0,212,255,0.1) 0%, transparent 50%)',
+                'radial-gradient(circle at 30% 70%, rgba(184,41,247,0.1) 0%, transparent 50%)',
+                'radial-gradient(circle at 70% 30%, rgba(0,212,255,0.1) 0%, transparent 50%)',
+              ]
+            }}
+            transition={{ duration: 4, repeat: Infinity }}
+          />
+        </div>
+
+        {/* 中央内容 */}
+        <div className="relative z-10 text-center px-4">
+          {/* 神秘的加载动画 */}
+          <div className="relative w-48 h-48 mx-auto mb-12">
+            {/* 外圈 */}
+            <motion.div
+              className="absolute inset-0 rounded-full border-2 border-cyan-500/20"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+            >
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-cyan-400 rounded-full shadow-lg shadow-cyan-400/50" />
+            </motion.div>
             
-            {/* Scrolling code */}
-            <div className="absolute inset-0 overflow-hidden opacity-20">
-              {[...Array(10)].map((_, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ y: -20, opacity: 0 }}
-                  animate={{ y: 300, opacity: [0, 1, 0] }}
-                  transition={{ 
-                    duration: 2, 
-                    repeat: Infinity, 
-                    delay: i * 0.2,
-                    ease: 'linear'
-                  }}
-                  className="absolute text-xs font-mono text-amber-400"
-                  style={{ left: `${i * 10}%` }}
-                >
-                  {Math.random().toString(36).substring(2, 8)}
-                </motion.div>
-              ))}
-            </div>
+            {/* 中圈 */}
+            <motion.div
+              className="absolute inset-4 rounded-full border-2 border-purple-500/20"
+              animate={{ rotate: -360 }}
+              transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+            >
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-2 h-2 bg-purple-400 rounded-full shadow-lg shadow-purple-400/50" />
+            </motion.div>
+            
+            {/* 内圈 */}
+            <motion.div
+              className="absolute inset-8 rounded-full border-2 border-pink-500/20"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+            >
+              <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-pink-400 rounded-full shadow-lg shadow-pink-400/50" />
+            </motion.div>
+
+            {/* 中心 */}
+            <motion.div
+              className="absolute inset-16 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 flex items-center justify-center"
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              <Sparkles className="w-8 h-8 text-cyan-400" />
+            </motion.div>
           </div>
 
-          <motion.h2 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-2xl font-bold mb-2"
-          >
-            {lang === 'zh' ? '正在解析生命代码...' : 'Parsing life code...'}
-          </motion.h2>
-          
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="text-gray-400"
-          >
-            {lang === 'zh' 
-              ? '计算八字命盘 · 分析五行能量 · 生成人生K线'
-              : 'Calculating BaZi chart · Analyzing Five Elements · Generating Life K-Line'
-            }
-          </motion.p>
+          {/* 解析文字 */}
+          <div className="h-20 flex items-center justify-center">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentStep}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="text-center"
+              >
+                <p className="text-xl font-light text-white/90 tracking-wider">
+                  {analysisText}
+                </p>
+              </motion.div>
+            </AnimatePresence>
+          </div>
 
-          {/* Progress bars */}
-          <div className="mt-8 space-y-3 max-w-md mx-auto">
-            {[
-              { label: lang === 'zh' ? '天干地支' : 'Heavenly Stems', progress: 100 },
-              { label: lang === 'zh' ? '五行分析' : 'Five Elements', progress: 85 },
-              { label: lang === 'zh' ? '大运流年' : 'Luck Cycles', progress: 60 },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <span className="text-xs text-gray-500 w-24">{item.label}</span>
-                <div className="flex-1 h-1.5 bg-[#2b3139] rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${item.progress}%` }}
-                    transition={{ duration: 2, delay: i * 0.3 }}
-                    className="h-full bg-amber-500 rounded-full"
-                  />
-                </div>
-                <span className="text-xs text-gray-500 w-8">{item.progress}%</span>
-              </div>
+          {/* 进度指示器 */}
+          <div className="flex justify-center gap-2 mt-8">
+            {ANALYSIS_STEPS.map((_, index) => (
+              <motion.div
+                key={index}
+                className="w-2 h-2 rounded-full"
+                animate={{
+                  backgroundColor: index <= currentStep ? '#00D4FF' : 'rgba(255,255,255,0.2)',
+                  scale: index === currentStep ? 1.5 : 1,
+                }}
+                transition={{ duration: 0.3 }}
+              />
             ))}
           </div>
-        </motion.div>
+
+          {/* 底部提示 */}
+          <motion.p
+            className="mt-12 text-sm text-white/30 tracking-widest"
+            animate={{ opacity: [0.3, 0.6, 0.3] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            ORACLE · 东方智慧未来趋势研究院
+          </motion.p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center px-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
-        {/* Header */}
+      <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 mb-4">
-            <Sparkles className="w-10 h-10 text-white" />
+          {/* Logo - 深色意向化设计 */}
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-[#1a3a4a] via-[#2d4a5a] to-[#1e3d4d] mb-4 shadow-lg shadow-cyan-900/30 border border-cyan-500/20">
+            <Sparkles className="w-10 h-10 text-[#5BC0DE]" />
           </div>
-          <h1 className="text-3xl font-bold mb-2">
-            {lang === 'zh' ? '初始化生命代码' : 'Initialize Life Code'}
-          </h1>
-          <p className="text-gray-400">
-            {lang === 'zh' 
-              ? '输入初始数据，获取专属人生行情'
-              : 'Enter initial data to get your exclusive life chart'
-            }
-          </p>
+          <h1 className="text-3xl font-bold mb-2 text-white">初始化生命代码</h1>
+          <p className="text-gray-400">输入初始数据，获取专属人生行情</p>
         </div>
 
-        {/* Progress */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          {steps.map((_, i) => (
-            <div
-              key={i}
-              className={`h-1 rounded-full transition-all duration-300 ${
-                i <= step ? 'w-8 bg-amber-500' : 'w-8 bg-[#2b3139]'
-              }`}
-            />
-          ))}
-        </div>
-
-        {/* Gender Selection (only on first step) */}
-        {step === 0 && (
-          <div className="flex gap-3 mb-6">
+        <div className="space-y-4">
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            placeholder="输入你的代号"
+            className="w-full px-4 py-4 rounded-xl bg-[#1e2329] border border-[#2b3139] text-white placeholder:text-gray-500"
+          />
+          
+          <div className="flex gap-3">
             <button
               onClick={() => setFormData({ ...formData, gender: 'male' })}
               className={`flex-1 py-3 rounded-xl border transition-all ${
                 formData.gender === 'male'
-                  ? 'border-amber-500 bg-amber-500/10 text-amber-400'
-                  : 'border-[#2b3139] text-gray-400 hover:border-gray-600'
+                  ? 'border-[#00D4FF] bg-[#00D4FF]/10 text-[#00D4FF]'
+                  : 'border-[#2b3139] text-gray-400'
               }`}
             >
-              {lang === 'zh' ? '乾造 (男)' : 'Male'}
+              乾造 (男)
             </button>
             <button
               onClick={() => setFormData({ ...formData, gender: 'female' })}
               className={`flex-1 py-3 rounded-xl border transition-all ${
                 formData.gender === 'female'
-                  ? 'border-pink-500 bg-pink-500/10 text-pink-400'
-                  : 'border-[#2b3139] text-gray-400 hover:border-gray-600'
+                  ? 'border-[#FF2D92] bg-[#FF2D92]/10 text-[#FF2D92]'
+                  : 'border-[#2b3139] text-gray-400'
               }`}
             >
-              {lang === 'zh' ? '坤造 (女)' : 'Female'}
+              坤造 (女)
             </button>
           </div>
-        )}
 
-        {/* Input Field */}
-        <div className="space-y-4">
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2">
-              <CurrentIcon className="w-5 h-5 text-gray-400" />
+          <input
+            type="date"
+            value={formData.birthDate}
+            onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+            className="w-full px-4 py-4 rounded-xl bg-[#1e2329] border border-[#2b3139] text-white"
+          />
+
+          <input
+            type="time"
+            value={formData.birthTime}
+            onChange={(e) => setFormData({ ...formData, birthTime: e.target.value })}
+            className="w-full px-4 py-4 rounded-xl bg-[#1e2329] border border-[#2b3139] text-white"
+          />
+
+          {/* 地址选择区域 */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
+              <MapPin className="w-4 h-4" />
+              <span>出生地</span>
             </div>
-            <input
-              type={currentStep.id === 'birthDate' ? 'date' : currentStep.id === 'birthTime' ? 'time' : 'text'}
-              value={formData[currentStep.id as keyof typeof formData] as string}
-              onChange={(e) => setFormData({ ...formData, [currentStep.id]: e.target.value })}
-              placeholder={currentStep.placeholder[lang]}
-              className="w-full pl-12 pr-4 py-4 rounded-xl bg-[#1e2329] border border-[#2b3139] text-white placeholder:text-gray-500 focus:outline-none focus:border-amber-500 transition-colors"
-            />
+            
+            {/* 国家选择 */}
+            <div className="relative">
+              <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+              <select
+                value={formData.country}
+                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                className="w-full pl-12 pr-4 py-4 rounded-xl bg-[#1e2329] border border-[#2b3139] text-white appearance-none cursor-pointer"
+              >
+                {COUNTRIES.map(country => (
+                  <option key={country} value={country}>{country}</option>
+                ))}
+              </select>
+            </div>
+            
+            {isChina ? (
+              <>
+                <select
+                  value={formData.province}
+                  onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+                  className="w-full px-4 py-4 rounded-xl bg-[#1e2329] border border-[#2b3139] text-white appearance-none cursor-pointer"
+                >
+                  <option value="">选择省份/直辖市</option>
+                  {provinces.map(province => (
+                    <option key={province} value={province}>{province}</option>
+                  ))}
+                </select>
+                
+                <select
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  disabled={!formData.province}
+                  className="w-full px-4 py-4 rounded-xl bg-[#1e2329] border border-[#2b3139] text-white appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">选择城市</option>
+                  {cities.map(city => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+                
+                <select
+                  value={formData.district}
+                  onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                  disabled={!formData.city}
+                  className="w-full px-4 py-4 rounded-xl bg-[#1e2329] border border-[#2b3139] text-white appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">选择区/县</option>
+                  {districts.map(district => (
+                    <option key={district} value={district}>{district}</option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <input
+                type="text"
+                value={formData.foreignLocation}
+                onChange={(e) => setFormData({ ...formData, foreignLocation: e.target.value })}
+                placeholder={`输入${formData.country}的城市/地区`}
+                className="w-full px-4 py-4 rounded-xl bg-[#1e2329] border border-[#2b3139] text-white placeholder:text-gray-500"
+              />
+            )}
           </div>
 
           <button
-            onClick={handleNext}
-            disabled={!formData[currentStep.id as keyof typeof formData]}
-            className="w-full py-4 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold flex items-center justify-center gap-2 transition-colors"
+            onClick={startAnalysis}
+            disabled={!isFormValid()}
+            className="w-full py-4 rounded-xl bg-gradient-to-r from-[#00D4FF] to-[#B829F7] text-white font-semibold disabled:opacity-50"
           >
-            <span>{step === steps.length - 1 
-              ? (lang === 'zh' ? '开始解析' : 'Start Analysis')
-              : (lang === 'zh' ? '下一步' : 'Next')
-            }</span>
-            <ChevronRight className="w-5 h-5" />
+            开始解析
           </button>
         </div>
-
-        {/* Skip Button */}
-        <button
-          onClick={onSubmit}
-          className="w-full mt-4 py-3 rounded-xl border border-[#2b3139] text-gray-400 hover:text-white hover:border-gray-600 transition-colors"
-        >
-          {lang === 'zh' ? '跳过，使用演示数据' : 'Skip, use demo data'}
-        </button>
-
-        {/* Info */}
-        <p className="text-center text-xs text-gray-500 mt-6">
-          {lang === 'zh' 
-            ? '你的出生信息将用于生成专属命盘，数据仅存储在本地'
-            : 'Your birth info will be used to generate your exclusive chart, data stored locally only'
-          }
-        </p>
-      </motion.div>
+      </div>
     </div>
   );
 }

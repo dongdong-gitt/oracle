@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Maximize2, Settings } from 'lucide-react';
 import { Language, t } from './Dashboard';
+import { useUser } from '../context/UserContext';
 
 interface KLineData {
   time: string;
@@ -19,25 +20,34 @@ interface LifeKLineProps {
   period: string;
 }
 
-// Generate mock K-line data based on bazi patterns
-const generateKLineData = (days: number): KLineData[] => {
+// Generate K-line data based on user's bazi
+const generateKLineDataFromBazi = (days: number, bazi: { day?: string; wuXing?: Record<string, string> } | null): KLineData[] => {
   const data: KLineData[] = [];
   let basePrice = 75;
+  
+  // Use user's day pillar for seed
+  const seed = bazi?.day ? bazi.day.charCodeAt(0) + bazi.day.charCodeAt(1) : 1234;
   
   for (let i = days; i >= 0; i--) {
     const date = new Date();
     date.setDate(date.getDate() - i);
     
-    // Simulate bazi-based volatility
+    // Generate pseudo-random but consistent values based on date and bazi
+    const daySeed = date.getTime() + seed;
+    const pseudoRandom = (offset: number) => {
+      const x = Math.sin(daySeed + offset) * 10000;
+      return x - Math.floor(x);
+    };
+    
     const dayOfWeek = date.getDay();
     const volatility = dayOfWeek === 0 || dayOfWeek === 6 ? 0.02 : 0.05;
-    const trend = Math.sin(i / 7) * 10; // Weekly cycle
+    const trend = Math.sin(i / 7) * 10;
     
-    const open = basePrice + trend + (Math.random() - 0.5) * 5;
-    const close = open + (Math.random() - 0.5) * volatility * 100;
-    const high = Math.max(open, close) + Math.random() * volatility * 50;
-    const low = Math.min(open, close) - Math.random() * volatility * 50;
-    const volume = Math.floor(Math.random() * 1000) + 500;
+    const open = basePrice + trend + (pseudoRandom(1) - 0.5) * 5;
+    const close = open + (pseudoRandom(2) - 0.5) * volatility * 100;
+    const high = Math.max(open, close) + pseudoRandom(3) * volatility * 50;
+    const low = Math.min(open, close) - pseudoRandom(4) * volatility * 50;
+    const volume = Math.floor(pseudoRandom(5) * 1000) + 500;
     
     data.push({
       time: date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }),
@@ -55,15 +65,16 @@ const generateKLineData = (days: number): KLineData[] => {
 };
 
 export default function LifeKLine({ lang, period }: LifeKLineProps) {
+  const { baziResult } = useUser();
   const [data, setData] = useState<KLineData[]>([]);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const days = period === '1D' ? 30 : period === '1W' ? 90 : period === '1M' ? 365 : 1825;
-    setData(generateKLineData(days));
-  }, [period]);
+    const days = period === '1D' ? 30 : period === '1M' ? 365 : period === '1Y' ? 1825 : period === '10Y' ? 3650 : 18250;
+    setData(generateKLineDataFromBazi(days, baziResult));
+  }, [period, baziResult]);
 
   const currentData = hoveredIndex !== null ? data[hoveredIndex] : data[data.length - 1];
   const isUp = currentData ? currentData.close >= currentData.open : true;

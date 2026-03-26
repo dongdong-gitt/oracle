@@ -1,0 +1,211 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 用户表
+model User {
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  phone         String?   @unique
+  wechatId      String?   @unique @map("wechat_id")
+  name          String?
+  avatar        String?
+  
+  // 会员信息
+  membership    Membership @default(FREE)
+  membershipExpiresAt DateTime? @map("membership_expires_at")
+  
+  // 统计数据
+  readingCount  Int       @default(0) @map("reading_count")
+  lastReadingAt DateTime? @map("last_reading_at")
+  
+  // 关联数据
+  baziReadings  BaziReading[]
+  liuyaoReadings LiuyaoReading[]
+  payments      Payment[]
+  sessions      UserSession[]
+  
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+// 会员等级
+enum Membership {
+  FREE      // 免费用户
+  BASIC     // 基础会员
+  PREMIUM   // 高级会员
+  VIP       // VIP会员
+}
+
+// 八字测算记录
+model BaziReading {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // 出生信息
+  name          String
+  gender        Gender
+  birthDate     DateTime  @map("birth_date")
+  birthTime     String    @map("birth_time") // HH:mm格式
+  birthPlace    String    @map("birth_place")
+  country       String?
+  province      String?
+  city          String?
+  district      String?
+  longitude     Float?    // 经度，用于真太阳时
+  latitude      Float?    // 纬度
+  
+  // 八字结果（JSON存储）
+  baziData      Json      @map("bazi_data") // 四柱、藏干、十神等
+  daYun         Json      @map("da_yun")    // 大运
+  liuNian       Json      @map("liu_nian")  // 流年
+  aiAnalysis    Json?     @map("ai_analysis") // AI解读
+  baseScores    Json?     @map("base_scores") // 算法评分
+  klineData     Json?     @map("kline_data") // K线数据
+  
+  // 元数据
+  isFavorite    Boolean   @default(false) @map("is_favorite")
+  notes         String?   // 用户备注
+  
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  @@index([userId])
+  @@index([birthDate])
+  @@map("bazi_readings")
+}
+
+// 六爻测算记录
+model LiuyaoReading {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  question      String    // 所问之事
+  method        DivinationMethod // 起卦方式
+  
+  // 卦象数据
+  guaXiang      Json      @map("gua_xiang") // 卦象信息
+  yaoList       Json      @map("yao_list")   // 六爻列表
+  aiAnalysis    Json?     @map("ai_analysis") // AI解读
+  
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  @@index([userId])
+  @@map("liuyao_readings")
+}
+
+// 性别枚举
+enum Gender {
+  MALE
+  FEMALE
+}
+
+// 起卦方式
+enum DivinationMethod {
+  MANUAL      // 手动摇卦
+  TIME        // 时间起卦
+  NUMBER      // 数字起卦
+  RANDOM      // 随机起卦
+}
+
+// 支付记录
+model Payment {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  amount        Decimal   @db.Decimal(10, 2)
+  currency      String    @default("CNY")
+  
+  type          PaymentType
+  status        PaymentStatus @default(PENDING)
+  
+  // 支付平台信息
+  provider      String    // wechat, alipay, stripe
+  providerOrderId String? @map("provider_order_id")
+  
+  // 关联的会员/服务
+  membershipType  Membership? @map("membership_type")
+  readingId     String?   @map("reading_id")
+  
+  paidAt        DateTime? @map("paid_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  @@index([userId])
+  @@index([status])
+  @@map("payments")
+}
+
+enum PaymentType {
+  MEMBERSHIP  // 会员订阅
+  READING     // 单次测算
+  RECHARGE    // 充值
+}
+
+enum PaymentStatus {
+  PENDING     // 待支付
+  PAID        // 已支付
+  FAILED      // 支付失败
+  REFUNDED    // 已退款
+}
+
+// 用户会话（用于多设备同步）
+model UserSession {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  deviceId      String    @map("device_id")
+  deviceType    String    @map("device_type") // web, ios, android
+  deviceName    String?   @map("device_name")
+  
+  lastActiveAt  DateTime  @default(now()) @map("last_active_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  @@index([userId])
+  @@map("user_sessions")
+}
+
+// 系统配置
+model Config {
+  id            String    @id @default(cuid())
+  key           String    @unique
+  value         Json
+  description   String?
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  
+  @@map("configs")
+}
+
+// AI调用日志（用于成本分析）
+model AiLog {
+  id            String    @id @default(cuid())
+  userId        String?   @map("user_id")
+  
+  provider      String    // deepseek, openai, etc.
+  model         String
+  
+  inputTokens   Int       @map("input_tokens")
+  outputTokens  Int       @map("output_tokens")
+  cost          Decimal   @db.Decimal(10, 6)
+  
+  requestType   String    @map("request_type") // bazi, liuyao, chat
+  latencyMs     Int       @map("latency_ms")
+  
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@map("ai_logs")
+}

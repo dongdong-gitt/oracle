@@ -1,12 +1,21 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import { UserProvider } from "./context/UserContext";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ 
+  subsets: ["latin"],
+  variable: '--font-inter',
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: '--font-space',
+});
 
 export const metadata: Metadata = {
-  title: "Oracle - 东方智慧未来趋势研究院",
-  description: "结合东方命理智慧与全球投资趋势，为高净值人群提供周期性投资策略",
+  title: "ORACLE - Life Trading System",
+  description: "Quantify destiny, turn metaphysics into alpha. Your personal life asset management dashboard.",
 };
 
 export default function RootLayout({
@@ -16,7 +25,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
-      <body className={inter.className}>{children}</body>
+      <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
+        <UserProvider>
+          {children}
+        </UserProvider>
+      </body>
     </html>
   );
 }

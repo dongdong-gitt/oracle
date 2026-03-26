@@ -1,224 +1,531 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, MapPin, User, Sparkles } from 'lucide-react';
+import { Sparkles, User, MapPin, Clock, Calendar, RefreshCw } from 'lucide-react';
+import { useUser } from '../context/UserContext';
 
-export default function BaZiPan() {
-  const [formData, setFormData] = useState({
-    name: '',
-    gender: 'male' as 'male' | 'female',
-    birthDate: '',
-    birthTime: '',
-    birthPlace: '',
-  });
-  const [showResult, setShowResult] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowResult(true);
+interface BaziPanProps {
+  data: {
+    bazi: {
+      year: string;
+      month: string;
+      day: string;
+      hour: string;
+      riZhu: string;
+    };
+    detail: {
+      性别: string;
+      阳历: string;
+      农历: string;
+      八字: string;
+      生肖: string;
+      日主: string;
+      年柱: any;
+      月柱: any;
+      日柱: any;
+      时柱: any;
+      胎元: string;
+      命宫: string;
+      身宫: string;
+      神煞: {
+        年柱: string[];
+        月柱: string[];
+        日柱: string[];
+        时柱: string[];
+      };
+      大运: {
+        起运日期: string;
+        起运年龄: number;
+        大运: Array<{
+          age: number;
+          干支: string;
+          开始年份: number;
+          结束: number;
+          天干十神: string;
+          地支十神: string[];
+        }>;
+      };
+      刑冲合会?: {
+        天干?: string[];
+        地支?: string[];
+      };
+    };
+    aiAnalysis?: {
+      mingZhu: string;
+      career: string;
+      wealth: string;
+      love: string;
+      health: string;
+      currentPeriod: string;
+      thisYear: string;
+      advice: string;
+      score: {
+        career: number;
+        wealth: number;
+        love: number;
+        health: number;
+        overall: number;
+      };
+    };
   };
-
-  // 模拟八字数据
-  const baZiData = {
-    year: { gan: '甲', zhi: '子', wuxing: '木' },
-    month: { gan: '丙', zhi: '寅', wuxing: '火' },
-    day: { gan: '戊', zhi: '辰', wuxing: '土' },
-    hour: { gan: '庚', zhi: '午', wuxing: '金' },
-    rizhu: '戊土',
-    yongshen: '火',
-    xishen: '土',
-    jishen: '水',
+  birthData: {
+    name: string;
+    birthDate: string;
+    birthTime: string;
+    birthPlace: string;
+    gender: 'male' | 'female';
   };
+}
+
+// 五行颜色
+const WUXING_COLORS: Record<string, string> = {
+  '木': 'text-green-400',
+  '火': 'text-red-400',
+  '土': 'text-yellow-400',
+  '金': 'text-amber-300',
+  '水': 'text-blue-400',
+};
+
+// 十神颜色
+const SHISHEN_COLORS: Record<string, string> = {
+  '比肩': 'text-gray-300',
+  '劫财': 'text-gray-400',
+  '食神': 'text-green-300',
+  '伤官': 'text-green-400',
+  '偏财': 'text-yellow-300',
+  '正财': 'text-yellow-400',
+  '七杀': 'text-red-400',
+  '正官': 'text-red-300',
+  '偏印': 'text-blue-300',
+  '正印': 'text-blue-400',
+};
+
+export default function BaZiPan({ data, birthData }: BaziPanProps) {
+  const { detail, aiAnalysis } = data;
+  const { clearData } = useUser();
+  
+  const pillars = [
+    { name: '年柱', key: '年柱', position: '年' },
+    { name: '月柱', key: '月柱', position: '月' },
+    { name: '日柱', key: '日柱', position: '日' },
+    { name: '时柱', key: '时柱', position: '时' },
+  ];
+
+  // 计算当前大运
+  const currentYear = new Date().getFullYear();
+  const currentDaYun = detail.大运.大运.find(d => 
+    d.开始年份 <= currentYear && d.结束 >= currentYear
+  );
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="max-w-4xl mx-auto"
-    >
-      {!showResult ? (
-        <div className="text-center py-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-6"
-            style={{ background: 'linear-gradient(135deg, #f59e0b, #ea580c)' }}>
-            <Sparkles className="w-8 h-8 text-white" />
+    <div className="min-h-screen bg-[#0a0a0f] text-white pb-20">
+      {/* 头部信息 */}
+      <div className="bg-gradient-to-r from-[#1a1a2e] to-[#16213e] p-6 border-b border-white/10">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                <User className="w-6 h-6 text-cyan-400" />
+                {birthData.name || '命主'} 的命盘
+              </h1>
+              <div className="flex flex-wrap gap-4 text-sm text-gray-400">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-4 h-4" />
+                  {birthData.gender === 'male' ? '乾造' : '坤造'} · {birthData.birthDate}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  {birthData.birthTime}
+                </span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-4 h-4" />
+                  {birthData.birthPlace}
+                </span>
+              </div>
+            </div>
+            <div className="text-right">
+              <button
+                onClick={clearData}
+                className="mb-3 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white/70 hover:text-white transition-all flex items-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                重新测算
+              </button>
+              <div className="text-sm text-gray-400">日主</div>
+              <div className="text-3xl font-bold text-cyan-400">{detail.日主}</div>
+              <div className="text-sm text-gray-500">{detail.生肖}</div>
+            </div>
           </div>
-          <h2 className="text-[32px] font-semibold text-white mb-3">智能八字排盘</h2>
-          <p className="text-white/50 mb-8">结合传统四柱算法与现代AI推理，为您生成精准的命盘分析</p>
-
-          <form onSubmit={handleSubmit} className="max-w-md mx-auto space-y-4">
-            <div className="text-left">
-              <label className="text-sm text-white/50 mb-2 block">姓名（可选）</label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="请输入姓名"
-                  className="w-full pl-12 pr-4 py-3 rounded-xl text-white placeholder:text-white/30"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.1)' }}
-                />
-              </div>
-            </div>
-
-            <div className="text-left">
-              <label className="text-sm text-white/50 mb-2 block">性别</label>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, gender: 'male' })}
-                  className={`flex-1 py-3 rounded-xl transition-all ${
-                    formData.gender === 'male'
-                      ? 'text-white'
-                      : 'text-white/50 hover:text-white'
-                  }`}
-                  style={{
-                    background: formData.gender === 'male' ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255,255,255,0.05)',
-                    border: formData.gender === 'male' ? '0.5px solid rgba(6, 182, 212, 0.5)' : '0.5px solid rgba(255,255,255,0.1)',
-                  }}
-                >
-                  乾造（男）
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, gender: 'female' })}
-                  className={`flex-1 py-3 rounded-xl transition-all ${
-                    formData.gender === 'female'
-                      ? 'text-white'
-                      : 'text-white/50 hover:text-white'
-                  }`}
-                  style={{
-                    background: formData.gender === 'female' ? 'rgba(236, 72, 153, 0.2)' : 'rgba(255,255,255,0.05)',
-                    border: formData.gender === 'female' ? '0.5px solid rgba(236, 72, 153, 0.5)' : '0.5px solid rgba(255,255,255,0.1)',
-                  }}
-                >
-                  坤造（女）
-                </button>
-              </div>
-            </div>
-
-            <div className="text-left">
-              <label className="text-sm text-white/50 mb-2 block">出生日期（公历）</label>
-              <div className="relative">
-                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
-                <input
-                  type="date"
-                  value={formData.birthDate}
-                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                  className="w-full pl-12 pr-4 py-3 rounded-xl text-white"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.1)' }}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="text-left">
-              <label className="text-sm text-white/50 mb-2 block">出生时间</label>
-              <div className="relative">
-                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
-                <input
-                  type="time"
-                  value={formData.birthTime}
-                  onChange={(e) => setFormData({ ...formData, birthTime: e.target.value })}
-                  className="w-full pl-12 pr-4 py-3 rounded-xl text-white"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.1)' }}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="text-left">
-              <label className="text-sm text-white/50 mb-2 block">出生地</label>
-              <div className="relative">
-                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
-                <input
-                  type="text"
-                  value={formData.birthPlace}
-                  onChange={(e) => setFormData({ ...formData, birthPlace: e.target.value })}
-                  placeholder="请输入出生地（如城市或地区）"
-                  className="w-full pl-12 pr-4 py-3 rounded-xl text-white placeholder:text-white/30"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.1)' }}
-                  required
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-4 rounded-xl text-white font-medium mt-6"
-              style={{ background: 'linear-gradient(135deg, #f59e0b, #ea580c)' }}
-            >
-              立即排盘并解读
-            </button>
-          </form>
         </div>
-      ) : (
+      </div>
+
+      <div className="max-w-6xl mx-auto p-4 space-y-6">
+        {/* 八字命盘表格 */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="space-y-6"
+          className="bg-[#1a1a2e]/50 rounded-2xl border border-white/10 overflow-hidden"
         >
-          {/* 八字结果 */}
-          <div className="p-6 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
-            <h3 className="text-xl font-semibold text-white mb-6 text-center">八字命盘</h3>
-            <div className="grid grid-cols-4 gap-4">
-              {[
-                { label: '年柱', gan: baZiData.year.gan, zhi: baZiData.year.zhi, wuxing: baZiData.year.wuxing },
-                { label: '月柱', gan: baZiData.month.gan, zhi: baZiData.month.zhi, wuxing: baZiData.month.wuxing },
-                { label: '日柱', gan: baZiData.day.gan, zhi: baZiData.day.zhi, wuxing: baZiData.day.wuxing },
-                { label: '时柱', gan: baZiData.hour.gan, zhi: baZiData.hour.zhi, wuxing: baZiData.hour.wuxing },
-              ].map((item, i) => (
-                <div key={i} className="text-center p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)' }}>
-                  <div className="text-xs text-white/40 mb-2">{item.label}</div>
-                  <div className="text-3xl font-light text-white mb-1">{item.gan}{item.zhi}</div>
-                  <div className="text-xs" style={{ color: item.wuxing === '木' ? '#22c55e' : item.wuxing === '火' ? '#f97316' : item.wuxing === '土' ? '#eab308' : item.wuxing === '金' ? '#fbbf24' : '#3b82f6' }}>
-                    {item.wuxing}
+          <div className="p-4 border-b border-white/10 bg-white/5">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <span className="w-1 h-5 bg-cyan-400 rounded-full" />
+              八字命盘
+            </h2>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-white/5">
+                  <th className="p-3 text-left text-sm text-gray-400 font-normal">柱位</th>
+                  {pillars.map(p => (
+                    <th key={p.key} className="p-3 text-center text-sm text-gray-400 font-normal">
+                      {p.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {/* 天干十神 */}
+                <tr>
+                  <td className="p-3 text-sm text-gray-500">干神</td>
+                  {pillars.map(p => {
+                    const pillar = detail[p.key as keyof typeof detail] as any;
+                    const shishen = pillar?.天干?.十神 || (p.key === '日柱' ? '日主' : '');
+                    return (
+                      <td key={p.key} className="p-3 text-center">
+                        <span className={`text-sm ${SHISHEN_COLORS[shishen] || 'text-gray-300'}`}>
+                          {shishen}
+                        </span>
+                      </td>
+                    );
+                  })}
+                </tr>
+                
+                {/* 天干 */}
+                <tr className="bg-white/[0.02]">
+                  <td className="p-3 text-sm text-gray-500">天干</td>
+                  {pillars.map(p => {
+                    const pillar = detail[p.key as keyof typeof detail] as any;
+                    const gan = pillar?.天干?.天干;
+                    const wuxing = pillar?.天干?.五行;
+                    return (
+                      <td key={p.key} className="p-3 text-center">
+                        <span className={`text-2xl font-bold ${WUXING_COLORS[wuxing] || 'text-white'}`}>
+                          {gan}
+                        </span>
+                      </td>
+                    );
+                  })}
+                </tr>
+                
+                {/* 地支 */}
+                <tr>
+                  <td className="p-3 text-sm text-gray-500">地支</td>
+                  {pillars.map(p => {
+                    const pillar = detail[p.key as keyof typeof detail] as any;
+                    const zhi = pillar?.地支?.地支;
+                    const wuxing = pillar?.地支?.五行;
+                    return (
+                      <td key={p.key} className="p-3 text-center">
+                        <span className={`text-2xl font-bold ${WUXING_COLORS[wuxing] || 'text-white'}`}>
+                          {zhi}
+                        </span>
+                      </td>
+                    );
+                  })}
+                </tr>
+                
+                {/* 藏干 */}
+                <tr className="bg-white/[0.02]">
+                  <td className="p-3 text-sm text-gray-500 align-top">藏干</td>
+                  {pillars.map(p => {
+                    const pillar = detail[p.key as keyof typeof detail] as any;
+                    const canggan = pillar?.地支?.藏干;
+                    return (
+                      <td key={p.key} className="p-3 text-center">
+                        <div className="space-y-1">
+                          {canggan?.主气 && (
+                            <div className={`text-xs ${WUXING_COLORS[canggan.主气.天干 === '甲' || canggan.主气.天干 === '乙' ? '木' : canggan.主气.天干 === '丙' || canggan.主气.天干 === '丁' ? '火' : canggan.主气.天干 === '戊' || canggan.主气.天干 === '己' ? '土' : canggan.主气.天干 === '庚' || canggan.主气.天干 === '辛' ? '金' : '水'] || 'text-gray-300'}`}>
+                              {canggan.主气.天干}·{canggan.主气.十神}
+                            </div>
+                          )}
+                          {canggan?.中气 && (
+                            <div className="text-xs text-gray-400">
+                              {canggan.中气.天干}·{canggan.中气.十神}
+                            </div>
+                          )}
+                          {canggan?.余气 && (
+                            <div className="text-xs text-gray-500">
+                              {canggan.余气.天干}·{canggan.余气.十神}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+                
+                {/* 纳音 */}
+                <tr>
+                  <td className="p-3 text-sm text-gray-500">纳音</td>
+                  {pillars.map(p => {
+                    const pillar = detail[p.key as keyof typeof detail] as any;
+                    const nayin = pillar?.纳音;
+                    return (
+                      <td key={p.key} className="p-3 text-center">
+                        <span className="text-xs text-amber-400">{nayin}</span>
+                      </td>
+                    );
+                  })}
+                </tr>
+                
+                {/* 空亡 */}
+                <tr className="bg-white/[0.02]">
+                  <td className="p-3 text-sm text-gray-500">空亡</td>
+                  {pillars.map(p => {
+                    const pillar = detail[p.key as keyof typeof detail] as any;
+                    const kongwang = pillar?.空亡;
+                    return (
+                      <td key={p.key} className="p-3 text-center">
+                        <span className="text-xs text-gray-400">{kongwang}</span>
+                      </td>
+                    );
+                  })}
+                </tr>
+                
+                {/* 地势（十二长生） */}
+                <tr>
+                  <td className="p-3 text-sm text-gray-500">地势</td>
+                  {pillars.map(p => {
+                    const pillar = detail[p.key as keyof typeof detail] as any;
+                    const xingyun = pillar?.星运;
+                    return (
+                      <td key={p.key} className="p-3 text-center">
+                        <span className="text-xs text-purple-400">{xingyun}</span>
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
+
+        {/* 神煞 */}
+        {detail.神煞 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-[#1a1a2e]/50 rounded-2xl border border-white/10 p-4"
+          >
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <span className="w-1 h-5 bg-purple-400 rounded-full" />
+              神煞
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.entries(detail.神煞).map(([key, gods]) => (
+                <div key={key} className="bg-white/5 rounded-xl p-3">
+                  <div className="text-sm text-gray-500 mb-2">{key}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {(gods as string[]).slice(0, 6).map((god, i) => (
+                      <span key={i} className="text-xs px-2 py-1 bg-white/10 rounded text-cyan-300">
+                        {god}
+                      </span>
+                    ))}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </motion.div>
+        )}
 
-          {/* 命理分析 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-5 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)' }}>
-              <div className="text-sm text-white/40 mb-2">日主</div>
-              <div className="text-2xl font-semibold text-white">{baZiData.rizhu}</div>
-            </div>
-            <div className="p-5 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)' }}>
-              <div className="text-sm text-white/40 mb-2">用神</div>
-              <div className="text-2xl font-semibold text-amber-400">{baZiData.yongshen}</div>
-            </div>
-            <div className="p-5 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)' }}>
-              <div className="text-sm text-white/40 mb-2">忌神</div>
-              <div className="text-2xl font-semibold text-red-400">{baZiData.jishen}</div>
-            </div>
+        {/* 大运 */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-[#1a1a2e]/50 rounded-2xl border border-white/10 p-4"
+        >
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <span className="w-1 h-5 bg-green-400 rounded-full" />
+            大运走势
+            <span className="text-sm text-gray-500 font-normal">
+              （起运时间：{detail.大运.起运日期}，{detail.大运.起运年龄}岁起运）
+            </span>
+          </h2>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {detail.大运.大运.slice(0, 8).map((dy, i) => (
+              <div
+                key={i}
+                className={`flex-shrink-0 w-20 p-3 rounded-xl text-center ${
+                  dy.开始年份 <= currentYear && dy.结束 >= currentYear
+                    ? 'bg-cyan-500/20 border border-cyan-500/50'
+                    : 'bg-white/5'
+                }`}
+              >
+                <div className="text-xs text-gray-500 mb-1">{dy.age}岁</div>
+                <div className="text-lg font-bold text-white">{dy.干支}</div>
+                <div className="text-xs text-gray-400">{dy.开始年份}-{dy.结束}</div>
+              </div>
+            ))}
           </div>
-
-          {/* AI解读 */}
-          <div className="p-6 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-amber-400" />
-              AI深度解读
-            </h3>
-            <p className="text-white/60 leading-relaxed">
-              您的命盘显示为<b className="text-white">{baZiData.rizhu}日主</b>，生于寅月，木旺之时。
-              八字中官杀混杂，但有印星化杀生身，属于先苦后甜的格局。
-              目前行运至乙巳大运，火旺之地，事业有望突破。
-              建议把握2025-2027年的火运流年，积极进取。
-            </p>
-          </div>
-
-          <button
-            onClick={() => setShowResult(false)}
-            className="w-full py-3 rounded-xl text-white/60 hover:text-white transition-colors"
-            style={{ background: 'rgba(255,255,255,0.05)' }}
-          >
-            重新排盘
-          </button>
+          {currentDaYun && (
+            <div className="mt-4 p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+              <div className="text-sm text-cyan-400 mb-1">当前大运</div>
+              <div className="text-lg font-bold">{currentDaYun.干支}</div>
+              <div className="text-sm text-gray-400">
+                {currentDaYun.天干十神} · {currentDaYun.地支十神.join(' ')}
+              </div>
+            </div>
+          )}
         </motion.div>
-      )}
-    </motion.div>
+
+        {/* 刑冲合会 */}
+        {detail.刑冲合会 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-[#1a1a2e]/50 rounded-2xl border border-white/10 p-4"
+          >
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <span className="w-1 h-5 bg-amber-400 rounded-full" />
+              刑冲合会
+            </h2>
+            <div className="space-y-2">
+              {detail.刑冲合会.天干 && detail.刑冲合会.天干.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">天干：</span>
+                  <span className="text-sm text-amber-300">{detail.刑冲合会.天干.join(' · ')}</span>
+                </div>
+              )}
+              {detail.刑冲合会.地支 && detail.刑冲合会.地支.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">地支：</span>
+                  <span className="text-sm text-amber-300">{detail.刑冲合会.地支.join(' · ')}</span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* AI 深度解读 */}
+        {aiAnalysis && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] rounded-2xl border border-cyan-500/20 p-6"
+          >
+            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-cyan-400" />
+              AI 深度解读
+            </h2>
+            
+            {/* 运势评分 */}
+            <div className="grid grid-cols-5 gap-4 mb-6">
+              {[
+                { label: '事业', value: aiAnalysis.score?.career || 70, color: 'from-blue-500 to-cyan-500' },
+                { label: '财运', value: aiAnalysis.score?.wealth || 70, color: 'from-yellow-500 to-amber-500' },
+                { label: '感情', value: aiAnalysis.score?.love || 70, color: 'from-pink-500 to-rose-500' },
+                { label: '健康', value: aiAnalysis.score?.health || 70, color: 'from-green-500 to-emerald-500' },
+                { label: '综合', value: aiAnalysis.score?.overall || 70, color: 'from-purple-500 to-violet-500' },
+              ].map((item) => (
+                <div key={item.label} className="text-center">
+                  <div className="relative w-16 h-16 mx-auto mb-2">
+                    <svg className="w-16 h-16 transform -rotate-90">
+                      <circle cx="32" cy="32" r="28" stroke="rgba(255,255,255,0.1)" strokeWidth="4" fill="none" />
+                      <circle
+                        cx="32"
+                        cy="32"
+                        r="28"
+                        stroke="url(#gradient)"
+                        strokeWidth="4"
+                        fill="none"
+                        strokeDasharray={`${(item.value / 100) * 175.9} 175.9`}
+                        strokeLinecap="round"
+                      />
+                      <defs>
+                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" className={`text-${item.color.split('-')[1]}-500`} stopColor="currentColor" />
+                          <stop offset="100%" className={`text-${item.color.split('-')[3]}-500`} stopColor="currentColor" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-lg font-bold">{item.value}</span>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-400">{item.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* 详细解读 */}
+            <div className="space-y-4">
+              {aiAnalysis.mingZhu && (
+                <div className="p-4 bg-white/5 rounded-xl">
+                  <h3 className="text-cyan-400 font-semibold mb-2">命主分析</h3>
+                  <p className="text-gray-300 leading-relaxed">{aiAnalysis.mingZhu}</p>
+                </div>
+              )}
+              
+              <div className="grid md:grid-cols-2 gap-4">
+                {aiAnalysis.career && (
+                  <div className="p-4 bg-white/5 rounded-xl">
+                    <h3 className="text-blue-400 font-semibold mb-2">事业运势</h3>
+                    <p className="text-gray-300 text-sm leading-relaxed">{aiAnalysis.career}</p>
+                  </div>
+                )}
+                
+                {aiAnalysis.wealth && (
+                  <div className="p-4 bg-white/5 rounded-xl">
+                    <h3 className="text-amber-400 font-semibold mb-2">财运分析</h3>
+                    <p className="text-gray-300 text-sm leading-relaxed">{aiAnalysis.wealth}</p>
+                  </div>
+                )}
+                
+                {aiAnalysis.love && (
+                  <div className="p-4 bg-white/5 rounded-xl">
+                    <h3 className="text-pink-400 font-semibold mb-2">感情婚姻</h3>
+                    <p className="text-gray-300 text-sm leading-relaxed">{aiAnalysis.love}</p>
+                  </div>
+                )}
+                
+                {aiAnalysis.health && (
+                  <div className="p-4 bg-white/5 rounded-xl">
+                    <h3 className="text-green-400 font-semibold mb-2">健康提醒</h3>
+                    <p className="text-gray-300 text-sm leading-relaxed">{aiAnalysis.health}</p>
+                  </div>
+                )}
+              </div>
+              
+              {aiAnalysis.currentPeriod && (
+                <div className="p-4 bg-white/5 rounded-xl">
+                  <h3 className="text-purple-400 font-semibold mb-2">当前大运</h3>
+                  <p className="text-gray-300 leading-relaxed">{aiAnalysis.currentPeriod}</p>
+                </div>
+              )}
+              
+              {aiAnalysis.thisYear && (
+                <div className="p-4 bg-white/5 rounded-xl">
+                  <h3 className="text-orange-400 font-semibold mb-2">今年流年</h3>
+                  <p className="text-gray-300 leading-relaxed">{aiAnalysis.thisYear}</p>
+                </div>
+              )}
+              
+              {aiAnalysis.advice && (
+                <div className="p-4 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+                  <h3 className="text-cyan-400 font-semibold mb-2">综合建议</h3>
+                  <p className="text-gray-300 leading-relaxed">{aiAnalysis.advice}</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </div>
+    </div>
   );
 }
