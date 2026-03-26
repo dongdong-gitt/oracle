@@ -30,6 +30,9 @@ async function generateAiAnalysis(params: {
   }
 
   const currentYear = new Date().getFullYear();
+  const currentDaYun = params.daYun[0];
+  const nextDaYun = params.daYun[1];
+  
   const prompt = `你是一位专业、克制且实用的八字命理顾问。请基于用户的八字与大运信息，生成"结构化 JSON"，用于前端展示。
 
 用户信息：
@@ -38,26 +41,43 @@ async function generateAiAnalysis(params: {
 - 八字：${params.bazi.year} ${params.bazi.month} ${params.bazi.day} ${params.bazi.hour}
 - 日主：${params.detail?.日主 || params.bazi.riZhu}
 - 当前年份：${currentYear}
-- 大运：${params.daYun.map(d => `${d.age}岁 ${d.ganZhi}大运`).join('；')}
+- 当前大运：${currentDaYun?.age}岁 ${currentDaYun?.ganZhi}大运
+- 下一大运：${nextDaYun?.age}岁 ${nextDaYun?.ganZhi}大运
 
 输出要求：
 - 只输出 JSON，不要 Markdown，不要多余文字
 - 字段必须齐全：mingZhu, career, wealth, love, health, currentPeriod, thisYear, advice, score
 - score 为 0-100 的整数：career, wealth, love, health, overall
 - 文风：专业但易懂，避免绝对化断言，给出可执行建议
-- advice 字段要求：每条建议必须单独一行，用\\n换行，格式为"1. 标题：内容\\n2. 标题：内容\\n3. 标题：内容"
+
+【currentPeriod 当前大运要求】：
+- 必须包含：当前大运干支、年龄段、天干十神、地支藏干分析
+- 分析该大运对事业、财运、感情的整体影响
+- 指出该大运的关键机遇和挑战
+- 字数：150-200字
+
+【thisYear 今年流年要求】：
+- 必须包含：流年干支、与日主的关系、与大运的关系
+- 详细分析事业、财运、感情、健康四个维度
+- 指出今年的关键月份和注意事项
+- 字数：200-250字
+
+【advice 综合建议要求】：
+- 必须包含6条建议：事业、财务、情感、健康、人际、投资
+- 每条建议要具体可执行，避免空话
+- 格式："1. 事业：具体内容\\n2. 财务：具体内容\\n3. 情感：具体内容\\n4. 健康：具体内容\\n5. 人际：具体内容\\n6. 投资：具体内容"
 
 JSON 结构示例：
 {
-  "mingZhu": "...",
+  "mingZhu": "庚金日主，生于子月，水旺金沉...",
   "career": "...",
   "wealth": "...",
   "love": "...",
   "health": "...",
-  "currentPeriod": "...",
-  "thisYear": "...",
-  "advice": "1. 事业：专注于提升专业技能\\n2. 财务：现阶段以稳健储蓄为主\\n3. 情感：多与伴侣进行务实沟通\\n4. 健康：规律作息，重点养护脾胃",
-  "score": { "career": 70, "wealth": 70, "love": 70, "health": 70, "overall": 70 }
+  "currentPeriod": "当前正行乙酉大运（27-36岁）。大运地支酉金为日主强根，能一定程度帮身，事业财运较前运有起色。天干乙木正财合身，求财辛苦，易有财务压力或合作分利之事。此运是积累实力、明确方向的重要时期，宜稳扎稳打，不宜冒进。",
+  "thisYear": "${currentYear}丙午年，流年干支皆为火，官杀旺而克身。事业上压力与机遇并存，易有新的任务、挑战或岗位变动，需全力以赴应对。财运上花费较多，投资需谨慎，避免冲动消费。感情上，官杀生印，利于通过长辈介绍或正式场合结识缘分。健康上，火旺克金，需注意心肺过劳、炎症等问题，夏季尤其注意防暑。",
+  "advice": "1. 事业：聚焦核心技能，在专业领域建立不可替代性，避免分散精力\\n2. 财务：${currentYear}年以守成为主，强制储蓄，谨慎对待借贷与高风险投资\\n3. 情感：主动参与社交，但勿急于求成，培养共同兴趣是感情升温的良方\\n4. 健康：制定规律的锻炼计划，重点强化心肺功能，夏季注意防暑降温\\n5. 人际：多结交年长贵人，避免与小人纠缠，职场保持低调务实\\n6. 投资：优先选择稳健型理财产品，股票控制在总资产的30%以内",
+  "score": { "career": 70, "wealth": 65, "love": 75, "health": 68, "overall": 70 }
 }`;
 
   const messages: DeepseekMessage[] = [
