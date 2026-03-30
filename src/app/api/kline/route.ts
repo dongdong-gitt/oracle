@@ -279,6 +279,8 @@ export async function GET(request: NextRequest) {
   const targetDay = parseInt(searchParams.get('targetDay') || new Date().getDate().toString());
   
   try {
+    console.log('Generating K-line data:', { period, birthYear, birthMonth, birthDay, birthHour, gender, targetYear, targetMonth, targetDay });
+    
     const klineData = generateLifeKLine(
       period,
       birthYear,
@@ -290,6 +292,8 @@ export async function GET(request: NextRequest) {
       targetMonth,
       targetDay
     );
+    
+    console.log('K-line data generated:', klineData.length, 'items');
     
     return NextResponse.json({
       success: true,
@@ -304,7 +308,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('KLine generation error:', error);
     return NextResponse.json(
-      { error: 'KLine generation failed', message: (error as Error).message },
+      { success: false, error: 'KLine generation failed', message: (error as Error).message, stack: (error as Error).stack },
       { status: 500 }
     );
   }
