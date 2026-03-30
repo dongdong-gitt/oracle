@@ -55,10 +55,14 @@ export default function DailyGuidance() {
         targetDay: day.toString(),
       });
       
+      console.log('Fetching daily data:', params.toString());
+      
       const response = await fetch(`/api/kline?${params}`);
       const result = await response.json();
       
-      if (result.success && result.data.kline && result.data.kline.length > 0) {
+      console.log('Daily API response:', result);
+      
+      if (result.success && result.data && result.data.kline && result.data.kline.length > 0) {
         const klineData = result.data.kline;
         const currentHour = new Date().getHours();
         const currentShi = Math.floor(currentHour / 2);
@@ -70,11 +74,14 @@ export default function DailyGuidance() {
         const jiShen = result.data.kline[0]?.markers?.jiShen || '火';
         
         setDailyData(generateDailyGuidance(currentDate, score, yongShen, jiShen));
+      } else {
+        console.warn('No daily data received, using fallback');
+        setDailyData(generateDailyGuidance(currentDate, 65, '金', '火'));
       }
     } catch (error) {
       console.error('Failed to fetch daily data:', error);
       // Fallback to default
-      setDailyData(generateDailyGuidance(currentDate, 60, '金', '火'));
+      setDailyData(generateDailyGuidance(currentDate, 65, '金', '火'));
     } finally {
       setLoading(false);
     }
