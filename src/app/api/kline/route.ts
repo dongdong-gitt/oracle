@@ -281,6 +281,18 @@ export async function GET(request: NextRequest) {
   try {
     console.log('Generating K-line data:', { period, birthYear, birthMonth, birthDay, birthHour, gender, targetYear, targetMonth, targetDay });
     
+    // Test bazi calculation first
+    try {
+      const testDetail = getBaziDetail(birthYear, birthMonth, birthDay, birthHour, gender);
+      console.log('Bazi detail calculated:', testDetail.八字);
+    } catch (e) {
+      console.error('Bazi detail calculation failed:', e);
+      return NextResponse.json(
+        { success: false, error: 'Bazi calculation failed', message: (e as Error).message },
+        { status: 500 }
+      );
+    }
+    
     const klineData = generateLifeKLine(
       period,
       birthYear,

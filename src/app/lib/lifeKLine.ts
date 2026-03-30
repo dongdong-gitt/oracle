@@ -233,7 +233,8 @@ function generateShiChenKLine(
   const baseScore = calculateBaseScore(analysis);
   
   const daYunEffect = calculateDaYunEffect(daYun, analysis);
-  const liuNianEffect = calculateLiuNianEffect(liuNian, daYun.ganZhi, analysis);
+  const daYunGanZhi = daYun?.ganZhi || '乙酉';
+  const liuNianEffect = calculateLiuNianEffect(liuNian, daYunGanZhi, analysis);
   const liuYueEffect = calculateLiuYueEffect(month, liuNian, analysis);
   const liuYue = calculateYueZhu(year, month).join('');
   const liuRi = calculateRiZhu(year, month, day);
@@ -285,7 +286,8 @@ function generateDayKLine(
   const baseScore = calculateBaseScore(analysis);
   
   const daYunEffect = calculateDaYunEffect(daYun, analysis);
-  const liuNianEffect = calculateLiuNianEffect(liuNian, daYun.ganZhi, analysis);
+  const daYunGanZhi = daYun?.ganZhi || '乙酉';
+  const liuNianEffect = calculateLiuNianEffect(liuNian, daYunGanZhi, analysis);
   const liuYueEffect = calculateLiuYueEffect(month, liuNian, analysis);
   const liuYue = calculateYueZhu(year, month).join('');
   
@@ -343,7 +345,8 @@ function generateMonthKLine(
   const baseScore = calculateBaseScore(analysis);
   
   const daYunEffect = calculateDaYunEffect(daYun, analysis);
-  const liuNianEffect = calculateLiuNianEffect(liuNian, daYun.ganZhi, analysis);
+  const daYunGanZhi = daYun?.ganZhi || '乙酉';
+  const liuNianEffect = calculateLiuNianEffect(liuNian, daYunGanZhi, analysis);
   
   for (let month = 1; month <= 12; month++) {
     const liuYueEffect = calculateLiuYueEffect(month, liuNian, analysis);
