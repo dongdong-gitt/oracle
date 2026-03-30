@@ -118,7 +118,7 @@ function calculateDaYunEffect(daYun: { ganZhi: string }, analysis: CompleteBaziA
   
   let score = 0;
   
-  if (riZhu.strength === 'weak') {
+  if (analysis.riZhu.strength === 'weak') {
     if (['正印', '偏印', '比肩', '劫财'].includes(ganShiShen)) score += 12;
     else if (['正财', '偏财', '食神', '伤官'].includes(ganShiShen)) score -= 8;
     else score -= 5;
