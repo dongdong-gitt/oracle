@@ -458,17 +458,33 @@ function generateYearKLine(
   
   for (const item of kline) {
     const adjustedClose = Math.max(0, Math.min(100, item.close + adjustment));
-    const ratio = adjustedClose / item.close;
     
-    item.close = Math.round(adjustedClose * 10) / 10;
-    item.open = Math.round(Math.max(0, Math.min(100, item.open * ratio)) * 10) / 10;
-    item.high = Math.round(Math.max(0, Math.min(100, item.high * ratio)) * 10) / 10;
-    item.low = Math.round(Math.max(0, Math.min(100, item.low * ratio)) * 10) / 10;
+    // 避免除以零
+    if (item.close > 0) {
+      const ratio = adjustedClose / item.close;
+      
+      item.close = Math.round(adjustedClose * 10) / 10;
+      item.open = Math.round(Math.max(0, Math.min(100, item.open * ratio)) * 10) / 10;
+      item.high = Math.round(Math.max(0, Math.min(100, item.high * ratio)) * 10) / 10;
+      item.low = Math.round(Math.max(0, Math.min(100, item.low * ratio)) * 10) / 10;
+      
+      item.details.career = Math.max(0, Math.min(100, Math.round(item.details.career * ratio)));
+      item.details.wealth = Math.max(0, Math.min(100, Math.round(item.details.wealth * ratio)));
+      item.details.love = Math.max(0, Math.min(100, Math.round(item.details.love * ratio)));
+      item.details.health = Math.max(0, Math.min(100, Math.round(item.details.health * ratio)));
+    } else {
+      // 如果原值为0，直接设置为调整后的值
+      item.close = Math.round(adjustedClose * 10) / 10;
+      item.open = Math.round(adjustedClose * 10) / 10;
+      item.high = Math.round(Math.min(100, adjustedClose + 2) * 10) / 10;
+      item.low = Math.round(Math.max(0, adjustedClose - 2) * 10) / 10;
+      
+      item.details.career = Math.round(adjustedClose);
+      item.details.wealth = Math.round(adjustedClose);
+      item.details.love = Math.round(adjustedClose);
+      item.details.health = Math.round(adjustedClose);
+    }
     
-    item.details.career = Math.max(0, Math.min(100, Math.round(item.details.career * ratio)));
-    item.details.wealth = Math.max(0, Math.min(100, Math.round(item.details.wealth * ratio)));
-    item.details.love = Math.max(0, Math.min(100, Math.round(item.details.love * ratio)));
-    item.details.health = Math.max(0, Math.min(100, Math.round(item.details.health * ratio)));
     item.details.overall = calculateWeightedOverall(item.details);
   }
   
@@ -489,36 +505,65 @@ export function generateLifeKLine(
   targetDay?: number
 ): KLineData[] {
   try {
-    const detail = getBaziDetail(birthYear, birthMonth, birthDay, birthHour, gender);
-    const analysis = analyzeBaziComplete(detail);
-    const daYun = calculateDaYun(birthYear, birthMonth, birthDay, birthHour, gender);
+    // Step 1: Get Bazi Detail
+    let detail;
+    try {
+      detail = getBaziDetail(birthYear, birthMonth, birthDay, birthHour, gender);
+    } catch (e) {
+      console.error('getBaziDetail failed:', e);
+      throw new Error(`getBaziDetail failed: ${(e as Error).message}`);
+    }
+    
+    // Step 2: Analyze Bazi
+    let analysis;
+    try {
+      analysis = analyzeBaziComplete(detail);
+    } catch (e) {
+      console.error('analyzeBaziComplete failed:', e);
+      throw new Error(`analyzeBaziComplete failed: ${(e as Error).message}`);
+    }
+    
+    // Step 3: Calculate DaYun
+    let daYun;
+    try {
+      daYun = calculateDaYun(birthYear, birthMonth, birthDay, birthHour, gender);
+    } catch (e) {
+      console.error('calculateDaYun failed:', e);
+      throw new Error(`calculateDaYun failed: ${(e as Error).message}`);
+    }
     
     const ty = targetYear || new Date().getFullYear();
     const tm = targetMonth || new Date().getMonth() + 1;
     const td = targetDay || new Date().getDate();
     
-    switch (period) {
-      case '1d': {
-        const currentDaYun = daYun.find((d: any) => ty >= d.开始年份 && ty <= d.结束年份) || daYun[0];
-        const liuNian = calculateLiuNianGanZhi(ty);
-        return generateShiChenKLine(ty, tm, td, currentDaYun, liuNian, analysis);
+    // Step 4: Generate K-line based on period
+    try {
+      switch (period) {
+        case '1d': {
+          const currentDaYun = daYun.find((d: any) => ty >= d.开始年份 && ty <= d.结束年份) || daYun[0];
+          const liuNian = calculateLiuNianGanZhi(ty);
+          return generateShiChenKLine(ty, tm, td, currentDaYun, liuNian, analysis);
+        }
+        case '1m': {
+          const currentDaYun = daYun.find((d: any) => ty >= d.开始年份 && ty <= d.结束年份) || daYun[0];
+          const liuNian = calculateLiuNianGanZhi(ty);
+          return generateDayKLine(ty, tm, currentDaYun, liuNian, analysis);
+        }
+        case '1y': {
+          const currentDaYun = daYun.find((d: any) => ty >= d.开始年份 && ty <= d.结束年份) || daYun[0];
+          const liuNian = calculateLiuNianGanZhi(ty);
+          return generateMonthKLine(ty, currentDaYun, liuNian, analysis);
+        }
+        case '10y':
+          return generateYearKLine(birthYear, 10, daYun, analysis);
+        case 'all':
+          return generateYearKLine(birthYear, 80, daYun, analysis);
+        default:
+          return generateYearKLine(birthYear, 80, daYun, analysis);
       }
-      case '1m': {
-        const currentDaYun = daYun.find((d: any) => ty >= d.开始年份 && ty <= d.结束年份) || daYun[0];
-        const liuNian = calculateLiuNianGanZhi(ty);
-        return generateDayKLine(ty, tm, currentDaYun, liuNian, analysis);
-      }
-      case '1y': {
-        const currentDaYun = daYun.find((d: any) => ty >= d.开始年份 && ty <= d.结束年份) || daYun[0];
-        const liuNian = calculateLiuNianGanZhi(ty);
-        return generateMonthKLine(ty, currentDaYun, liuNian, analysis);
-      }
-      case '10y':
-        return generateYearKLine(birthYear, 10, daYun, analysis);
-      case 'all':
-        return generateYearKLine(birthYear, 80, daYun, analysis);
-      default:
-        return generateYearKLine(birthYear, 80, daYun, analysis);
+    } catch (e) {
+      console.error('K-line generation failed:', e);
+      throw new Error(`K-line generation failed: ${(e as Error).message}`);
     }
   } catch (error) {
     console.error('Error in generateLifeKLine:', error);
