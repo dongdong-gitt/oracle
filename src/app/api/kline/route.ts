@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateBaZi, calculateDaYun, calculateLiuNian, getBaziDetail, calculateBaziScore } from '@/app/lib/bazi';
+import { generateLifeKLine, KLinePeriod } from '@/app/lib/lifeKLine';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 
@@ -263,9 +264,48 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
-  return NextResponse.json({
-    message: '人生K线 API',
-    usage: 'POST /api/kline with {year, month, day, hour, gender, period}',
-  });
+// 新增：人生K线生成接口
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  
+  const period = (searchParams.get('period') || '1y') as KLinePeriod;
+  const birthYear = parseInt(searchParams.get('birthYear') || '1995');
+  const birthMonth = parseInt(searchParams.get('birthMonth') || '12');
+  const birthDay = parseInt(searchParams.get('birthDay') || '25');
+  const birthHour = parseInt(searchParams.get('birthHour') || '10');
+  const gender = (searchParams.get('gender') || 'male') as 'male' | 'female';
+  const targetYear = parseInt(searchParams.get('targetYear') || new Date().getFullYear().toString());
+  const targetMonth = parseInt(searchParams.get('targetMonth') || (new Date().getMonth() + 1).toString());
+  const targetDay = parseInt(searchParams.get('targetDay') || new Date().getDate().toString());
+  
+  try {
+    const klineData = generateLifeKLine(
+      period,
+      birthYear,
+      birthMonth,
+      birthDay,
+      birthHour,
+      gender,
+      targetYear,
+      targetMonth,
+      targetDay
+    );
+    
+    return NextResponse.json({
+      success: true,
+      data: {
+        period,
+        birthInfo: { birthYear, birthMonth, birthDay, birthHour, gender },
+        targetInfo: { targetYear, targetMonth, targetDay },
+        kline: klineData,
+        count: klineData.length,
+      },
+    });
+  } catch (error) {
+    console.error('KLine generation error:', error);
+    return NextResponse.json(
+      { error: 'KLine generation failed', message: (error as Error).message },
+      { status: 500 }
+    );
+  }
 }
