@@ -282,30 +282,65 @@ export async function GET(request: NextRequest) {
     console.log('Generating K-line data:', { period, birthYear, birthMonth, birthDay, birthHour, gender, targetYear, targetMonth, targetDay });
     
     // Test bazi calculation first
+    let testDetail;
     try {
-      const testDetail = getBaziDetail(birthYear, birthMonth, birthDay, birthHour, gender);
+      testDetail = getBaziDetail(birthYear, birthMonth, birthDay, birthHour, gender);
       console.log('Bazi detail calculated:', testDetail.八字);
     } catch (e) {
       console.error('Bazi detail calculation failed:', e);
       return NextResponse.json(
-        { success: false, error: 'Bazi calculation failed', message: (e as Error).message },
+        { success: false, error: 'Bazi calculation failed', message: (e as Error).message, stack: (e as Error).stack },
         { status: 500 }
       );
     }
     
-    const klineData = generateLifeKLine(
-      period,
-      birthYear,
-      birthMonth,
-      birthDay,
-      birthHour,
-      gender,
-      targetYear,
-      targetMonth,
-      targetDay
-    );
+    // Test analyzeBaziComplete
+    let analysis;
+    try {
+      analysis = analyzeBaziComplete(testDetail);
+      console.log('Bazi analysis completed:', analysis.scores);
+    } catch (e) {
+      console.error('Bazi analysis failed:', e);
+      return NextResponse.json(
+        { success: false, error: 'Bazi analysis failed', message: (e as Error).message, stack: (e as Error).stack },
+        { status: 500 }
+      );
+    }
     
-    console.log('K-line data generated:', klineData.length, 'items');
+    // Test calculateDaYun
+    let daYun;
+    try {
+      daYun = calculateDaYun(birthYear, birthMonth, birthDay, birthHour, gender);
+      console.log('DaYun calculated:', daYun.length, 'items');
+    } catch (e) {
+      console.error('DaYun calculation failed:', e);
+      return NextResponse.json(
+        { success: false, error: 'DaYun calculation failed', message: (e as Error).message, stack: (e as Error).stack },
+        { status: 500 }
+      );
+    }
+    
+    let klineData;
+    try {
+      klineData = generateLifeKLine(
+        period,
+        birthYear,
+        birthMonth,
+        birthDay,
+        birthHour,
+        gender,
+        targetYear,
+        targetMonth,
+        targetDay
+      );
+      console.log('K-line data generated:', klineData.length, 'items');
+    } catch (e) {
+      console.error('generateLifeKLine failed:', e);
+      return NextResponse.json(
+        { success: false, error: 'generateLifeKLine failed', message: (e as Error).message, stack: (e as Error).stack },
+        { status: 500 }
+      );
+    }
     
     return NextResponse.json({
       success: true,
