@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
       };
     } else {
       // 强制使用算法计算的分数，覆盖DeepSeek返回的分数
-      aiAnalysis.score = baseScores;
+      aiAnalysis.score = { ...baseScores };
     }
 
     return NextResponse.json({
@@ -242,12 +242,7 @@ export async function POST(request: NextRequest) {
           currentPeriod: aiAnalysis.currentPeriod,
           thisYear: aiAnalysis.thisYear,
           advice: aiAnalysis.advice,
-          score: {
-            ...(aiAnalysis.score || baseScores),
-            overall:
-              aiAnalysis.score?.overall ??
-              Math.round((baseScores.career + baseScores.wealth + baseScores.love + baseScores.health) / 4),
-          },
+          score: baseScores, // 始终使用算法计算的分数
         },
         kline,
         summary: {
