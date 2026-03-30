@@ -21,8 +21,9 @@ async function generateAiAnalysis(params: {
   name?: string;
   gender: 'male' | 'female';
   bazi: { year: string; month: string; day: string; hour: string; riZhu: string; wuXing?: any; yinYang?: any };
-  daYun: Array<{ age: number; ganZhi: string }>;
+  daYun: Array<{ age: number; ganZhi: string; 开始年份?: number; 结束年份?: number; 开始年龄?: number; 结束年龄?: number }>;
   detail: any;
+  currentDaYun?: { age: number; ganZhi: string; 开始年份?: number; 结束年份?: number; 开始年龄?: number; 结束年龄?: number };
 }) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
@@ -30,8 +31,9 @@ async function generateAiAnalysis(params: {
   }
 
   const currentYear = new Date().getFullYear();
-  const currentDaYun = params.daYun[0];
-  const nextDaYun = params.daYun[1];
+  // 使用传入的当前大运，而不是默认第一个
+  const currentDaYun = params.currentDaYun || params.daYun[0];
+  const nextDaYun = params.daYun[params.daYun.indexOf(currentDaYun) + 1] || params.daYun[1];
   
   const prompt = `你是一位专业、克制且实用的八字命理顾问。请基于用户的八字与大运信息，生成"结构化 JSON"，用于前端展示。
 
@@ -41,8 +43,8 @@ async function generateAiAnalysis(params: {
 - 八字：${params.bazi.year} ${params.bazi.month} ${params.bazi.day} ${params.bazi.hour}
 - 日主：${params.detail?.日主 || params.bazi.riZhu}
 - 当前年份：${currentYear}
-- 当前大运：${currentDaYun?.age}岁 ${currentDaYun?.ganZhi}大运
-- 下一大运：${nextDaYun?.age}岁 ${nextDaYun?.ganZhi}大运
+- 当前大运：${currentDaYun?.开始年龄 || currentDaYun?.age}岁 ${currentDaYun?.ganZhi}大运 (${currentDaYun?.开始年份 || currentYear}-${currentDaYun?.结束年份 || currentYear + 10}年)
+- 下一大运：${nextDaYun?.开始年龄 || nextDaYun?.age}岁 ${nextDaYun?.ganZhi}大运
 
 输出要求：
 - 只输出 JSON，不要 Markdown，不要多余文字
@@ -51,10 +53,11 @@ async function generateAiAnalysis(params: {
 - 文风：专业但易懂，避免绝对化断言，给出可执行建议
 
 【currentPeriod 当前大运要求】：
-- 必须包含：当前大运干支、年龄段、天干十神、地支藏干分析
+- 必须包含：当前大运干支、年龄段(${currentDaYun?.开始年龄 || currentDaYun?.age}-${currentDaYun?.结束年龄 || (currentDaYun?.age || 0) + 10}岁)、天干十神、地支藏干分析
 - 分析该大运对事业、财运、感情的整体影响
 - 指出该大运的关键机遇和挑战
 - 字数：150-200字
+- 重要：用户当前${currentYear}年正处于${currentDaYun?.ganZhi}大运（${currentDaYun?.开始年龄 || currentDaYun?.age}-${currentDaYun?.结束年龄 || (currentDaYun?.age || 0) + 10}岁），不是第一个大运
 
 【thisYear 今年流年要求】：
 - 必须包含：流年干支、与日主的关系、与大运的关系
@@ -202,6 +205,7 @@ export async function POST(request: NextRequest) {
       bazi,
       daYun,
       detail,
+      currentDaYun,
     });
 
     if (!aiAnalysis) {
