@@ -237,7 +237,7 @@ export default function LifeKLine({ lang = 'zh' }: LifeKLineProps) {
       {/* Price Info */}
       <div className="flex items-center gap-6 mb-4">
         <div>
-          <span className={`text-3xl font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+          <span className={`text-3xl font-bold ${isUp ? 'text-red-400' : 'text-emerald-400'}`}>
             {currentData?.close.toFixed(2) || '0.00'}
           </span>
           <span className="text-white/40 text-sm ml-2">综合运势分</span>
@@ -347,12 +347,12 @@ export default function LifeKLine({ lang = 'zh' }: LifeKLineProps) {
               opacity={0.8}
             />
 
-            {/* Candles */}
+            {/* Candles - 中国股市：红涨绿跌 */}
             {data.map((d, i) => {
               const x = getX(i);
               const candleWidth = Math.max(2, plotWidth / data.length * 0.6);
-              const isGreen = d.close >= d.open;
-              const color = isGreen ? '#10b981' : '#ef4444';
+              const isUp = d.close >= d.open; // 涨
+              const color = isUp ? '#ef4444' : '#10b981'; // 红涨绿跌
               
               return (
                 <g key={i}>
@@ -371,7 +371,7 @@ export default function LifeKLine({ lang = 'zh' }: LifeKLineProps) {
                     y={getY(Math.max(d.open, d.close))}
                     width={candleWidth}
                     height={Math.max(1, Math.abs(getY(d.open) - getY(d.close)))}
-                    fill={isGreen ? color : color}
+                    fill={color}
                     rx={1}
                     onMouseEnter={() => setHoveredIndex(i)}
                     onMouseLeave={() => setHoveredIndex(null)}

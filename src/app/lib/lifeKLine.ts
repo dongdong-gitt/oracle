@@ -1,5 +1,5 @@
 /**
- * 人生K线核心算法 - V2.1 (优化版)
+ * 人生K线核心算法 - V3.0 (复杂版)
  * 基于八字命理，生成终身运势时间序列
  * 核心原则：层层联动，加权平均，终身平均=八字综合分
  */
@@ -110,14 +110,7 @@ function calculateShiZhi(hour: number): string {
 // ==================== 核心评分算法 ====================
 
 /**
- * 计算基础分数（基于八字原局）
- */
-function calculateBaseScore(analysis: CompleteBaziAnalysis): number {
-  return analysis.scores.overall;
-}
-
-/**
- * 计算大运影响
+ * 计算大运影响分数（-20到+20）
  */
 function calculateDaYunEffect(daYun: { ganZhi: string }, analysis: CompleteBaziAnalysis): number {
   const gan = daYun.ganZhi[0];
@@ -127,43 +120,43 @@ function calculateDaYunEffect(daYun: { ganZhi: string }, analysis: CompleteBaziA
   let score = 0;
   
   if (riZhu.strength === 'weak') {
-    if (['正印', '偏印', '比肩', '劫财'].includes(ganShiShen)) score = 10;
-    else if (['正财', '偏财', '食神', '伤官'].includes(ganShiShen)) score = -8;
-    else score = -5;
+    if (['正印', '偏印', '比肩', '劫财'].includes(ganShiShen)) score += 12;
+    else if (['正财', '偏财', '食神', '伤官'].includes(ganShiShen)) score -= 8;
+    else score -= 5;
   } else {
-    if (['正财', '偏财', '食神', '伤官'].includes(ganShiShen)) score = 8;
-    else if (['正印', '偏印'].includes(ganShiShen)) score = -6;
-    else if (['比肩', '劫财'].includes(ganShiShen)) score = -4;
-    else score = 4;
+    if (['正财', '偏财', '食神', '伤官'].includes(ganShiShen)) score += 10;
+    else if (['正印', '偏印'].includes(ganShiShen)) score -= 8;
+    else if (['比肩', '劫财'].includes(ganShiShen)) score -= 5;
+    else score += 5;
   }
   
   return score;
 }
 
 /**
- * 计算流年影响
+ * 计算流年影响分数（-30到+30）
  */
-function calculateLiuNianEffect(liuNian: string, daYun: string, analysis: CompleteBaziAnalysis): number {
+function calculateLiuNianEffect(liuNian: string, daYunGanZhi: string, analysis: CompleteBaziAnalysis): number {
   const gan = liuNian[0];
   const ganShiShen = getShiShen(gan, analysis.riZhu.name[0]);
   let score = 0;
   
-  if (analysis.yongShen.yongShen.shishen.includes(ganShiShen)) score = 12;
-  else if (analysis.yongShen.xiShen.shishen.includes(ganShiShen)) score = 6;
-  else if (analysis.yongShen.jiShen.shishen.includes(ganShiShen)) score = -10;
+  if (analysis.yongShen.yongShen.shishen.includes(ganShiShen)) score += 15;
+  else if (analysis.yongShen.xiShen.shishen.includes(ganShiShen)) score += 8;
+  else if (analysis.yongShen.jiShen.shishen.includes(ganShiShen)) score -= 12;
   
-  if (isTianHe(gan, daYun[0])) score += 6;
-  if (isDiHe(liuNian[1], daYun[1])) score += 6;
-  if (isTianKe(gan, daYun[0])) score -= 8;
-  if (isDiChong(liuNian[1], daYun[1])) score -= 10;
+  if (isTianHe(gan, daYunGanZhi[0])) score += 8;
+  if (isDiHe(liuNian[1], daYunGanZhi[1])) score += 8;
+  if (isTianKe(gan, daYunGanZhi[0])) score -= 10;
+  if (isDiChong(liuNian[1], daYunGanZhi[1])) score -= 12;
   
   return score;
 }
 
 /**
- * 计算流月影响
+ * 计算流月影响分数（-15到+15）
  */
-function calculateLiuYueEffect(month: number, liuNian: string, analysis: CompleteBaziAnalysis): number {
+function calculateLiuYueEffect(year: number, month: number, liuNian: string, analysis: CompleteBaziAnalysis): number {
   const yueLing = ['寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥', '子', '丑'][month - 1];
   const yueLingWuxing = getWuXing(yueLing);
   const riZhuWuxing = getWuXing(analysis.riZhu.name[0]);
@@ -172,50 +165,54 @@ function calculateLiuYueEffect(month: number, liuNian: string, analysis: Complet
   const WUXING_KE: Record<string, string> = { '金': '木', '木': '土', '土': '水', '水': '火', '火': '金' };
   
   let score = 0;
-  if (WUXING_SHENG[yueLingWuxing] === riZhuWuxing) score = 6;
-  else if (yueLingWuxing === riZhuWuxing) score = 8;
-  else if (WUXING_KE[yueLingWuxing] === riZhuWuxing) score = -6;
-  else score = -2;
+  if (WUXING_SHENG[yueLingWuxing] === riZhuWuxing) score += 8;
+  else if (yueLingWuxing === riZhuWuxing) score += 10;
+  else if (WUXING_KE[yueLingWuxing] === riZhuWuxing) score -= 8;
+  else score -= 3;
   
-  if (isDiHe(yueLing, liuNian[1])) score += 4;
-  if (isDiChong(yueLing, liuNian[1])) score -= 6;
-  
-  return score;
-}
-
-/**
- * 计算流日影响
- */
-function calculateLiuRiEffect(day: number, month: number, liuYue: string, analysis: CompleteBaziAnalysis): number {
-  // 简化计算，基于日期和月柱
-  const baseEffect = (day % 10) - 5; // -5 to +4
-  const zhi = calculateRiZhu(2024, month, day)[1];
-  
-  let score = baseEffect;
-  if (isDiHe(zhi, liuYue[1])) score += 3;
-  if (isDiChong(zhi, liuYue[1])) score -= 4;
+  const yueZhu = calculateYueZhu(year, month);
+  if (isTianHe(yueZhu[0], liuNian[0])) score += 5;
+  if (isDiHe(yueZhu[1], liuNian[1])) score += 5;
+  if (isDiChong(yueZhu[1], liuNian[1])) score -= 8;
   
   return score;
 }
 
 /**
- * 计算流时影响
+ * 计算流日影响分数（-10到+10）
  */
-function calculateLiuShiEffect(hour: number, riZhu: string, analysis: CompleteBaziAnalysis): number {
+function calculateLiuRiEffect(year: number, month: number, day: number, liuYue: string, analysis: CompleteBaziAnalysis): number {
+  const riZhu = calculateRiZhu(year, month, day);
+  const riGanShiShen = getShiShen(riZhu[0], analysis.riZhu.name[0]);
+  let score = 0;
+  
+  if (analysis.yongShen.yongShen.shishen.includes(riGanShiShen)) score += 6;
+  else if (analysis.yongShen.jiShen.shishen.includes(riGanShiShen)) score -= 5;
+  
+  if (isDiHe(riZhu[1], liuYue[1])) score += 4;
+  if (isDiChong(riZhu[1], liuYue[1])) score -= 6;
+  
+  return score;
+}
+
+/**
+ * 计算流时影响分数（-8到+8）
+ */
+function calculateLiuShiEffect(hour: number, riZhu: [string, string], analysis: CompleteBaziAnalysis): number {
   const shiZhi = calculateShiZhi(hour);
   const shiZhiShiShen = getShiShen(shiZhi, analysis.riZhu.name[0]);
-  
   let score = 0;
-  if (analysis.yongShen.yongShen.shishen.includes(shiZhiShiShen)) score = 4;
-  else if (analysis.yongShen.jiShen.shishen.includes(shiZhiShiShen)) score = -3;
   
-  if (isDiHe(shiZhi, riZhu[1])) score += 2;
-  if (isDiChong(shiZhi, riZhu[1])) score -= 3;
+  if (analysis.yongShen.yongShen.shishen.includes(shiZhiShiShen)) score += 5;
+  else if (analysis.yongShen.jiShen.shishen.includes(shiZhiShiShen)) score -= 4;
+  
+  if (isDiHe(shiZhi, riZhu[1])) score += 3;
+  if (isDiChong(shiZhi, riZhu[1])) score -= 4;
   
   return score;
 }
 
-// ==================== K线生成函数（优化版）====================
+// ==================== K线生成函数（复杂版）====================
 
 /**
  * 生成时辰K线（当日12个时辰）
@@ -230,19 +227,18 @@ function generateShiChenKLine(
 ): KLineData[] {
   const kline: KLineData[] = [];
   const shichen = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
-  const baseScore = calculateBaseScore(analysis);
+  const baseScore = 65;
   
   const daYunEffect = calculateDaYunEffect(daYun, analysis);
-  const daYunGanZhi = daYun?.ganZhi || '乙酉';
-  const liuNianEffect = calculateLiuNianEffect(liuNian, daYunGanZhi, analysis);
-  const liuYueEffect = calculateLiuYueEffect(month, liuNian, analysis);
+  const liuNianEffect = calculateLiuNianEffect(liuNian, daYun.ganZhi, analysis);
+  const liuYueEffect = calculateLiuYueEffect(year, month, liuNian, analysis);
   const liuYue = calculateYueZhu(year, month).join('');
   const liuRi = calculateRiZhu(year, month, day);
-  const liuRiEffect = calculateLiuRiEffect(day, month, liuYue, analysis);
+  const liuRiEffect = calculateLiuRiEffect(year, month, day, liuYue, analysis);
   
   for (let i = 0; i < 12; i++) {
     const hour = i * 2;
-    const liuShiEffect = calculateLiuShiEffect(hour, liuRi.join(''), analysis);
+    const liuShiEffect = calculateLiuShiEffect(hour, liuRi, analysis);
     const totalEffect = daYunEffect + liuNianEffect + liuYueEffect + liuRiEffect + liuShiEffect;
     const overall = Math.max(0, Math.min(100, baseScore + totalEffect));
     
@@ -252,7 +248,7 @@ function generateShiChenKLine(
       wealth: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
       love: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
       health: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
-      overall: 0,
+      overall,
     };
     details.overall = calculateWeightedOverall(details);
     
@@ -272,9 +268,9 @@ function generateShiChenKLine(
 }
 
 /**
- * 生成日K线（当月每天）- 优化版：直接计算，不递归调用时辰
+ * 生成日K线（当月每天）
  */
-function generateDayKLine(
+function generateDayKLineFromShiChen(
   year: number,
   month: number,
   daYun: any,
@@ -283,49 +279,38 @@ function generateDayKLine(
 ): KLineData[] {
   const kline: KLineData[] = [];
   const daysInMonth = new Date(year, month, 0).getDate();
-  const baseScore = calculateBaseScore(analysis);
-  
-  const daYunEffect = calculateDaYunEffect(daYun, analysis);
-  const daYunGanZhi = daYun?.ganZhi || '乙酉';
-  const liuNianEffect = calculateLiuNianEffect(liuNian, daYunGanZhi, analysis);
-  const liuYueEffect = calculateLiuYueEffect(month, liuNian, analysis);
-  const liuYue = calculateYueZhu(year, month).join('');
   
   for (let day = 1; day <= daysInMonth; day++) {
-    const liuRiEffect = calculateLiuRiEffect(day, month, liuYue, analysis);
+    // 获取当天12个时辰的数据
+    const shiChenData = generateShiChenKLine(year, month, day, daYun, liuNian, analysis);
     
-    // 计算当天12个时辰的平均（简化计算）
-    let dayTotalScore = 0;
-    for (let h = 0; h < 12; h++) {
-      const liuShiEffect = calculateLiuShiEffect(h * 2, calculateRiZhu(year, month, day).join(''), analysis);
-      dayTotalScore += baseScore + daYunEffect + liuNianEffect + liuYueEffect + liuRiEffect + liuShiEffect;
-    }
-    const overall = Math.max(0, Math.min(100, dayTotalScore / 12));
+    // 计算当天的开高收低（基于12个时辰）
+    const shiOverallScores = shiChenData.map(d => d.details.overall);
+    const open = shiOverallScores[0];
+    const close = shiOverallScores[shiOverallScores.length - 1];
+    const high = Math.max(...shiOverallScores);
+    const low = Math.min(...shiOverallScores);
     
-    const variation = 4;
-    const details = {
-      career: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
-      wealth: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
-      love: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
-      health: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
+    // 计算当天的分项平均
+    const avgDetails = {
+      career: Math.round(shiChenData.reduce((a, b) => a + b.details.career, 0) / 12),
+      wealth: Math.round(shiChenData.reduce((a, b) => a + b.details.wealth, 0) / 12),
+      love: Math.round(shiChenData.reduce((a, b) => a + b.details.love, 0) / 12),
+      health: Math.round(shiChenData.reduce((a, b) => a + b.details.health, 0) / 12),
       overall: 0,
     };
-    details.overall = calculateWeightedOverall(details);
     
-    const open = overall + (Math.random() - 0.5) * 3;
-    const close = overall;
-    const high = Math.max(open, close) + Math.random() * 2;
-    const low = Math.min(open, close) - Math.random() * 2;
+    avgDetails.overall = calculateWeightedOverall(avgDetails);
     
     kline.push({
       time: `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`,
       label: `${day}日`,
-      open: Math.round(Math.max(0, Math.min(100, open)) * 10) / 10,
-      high: Math.round(Math.max(0, Math.min(100, high)) * 10) / 10,
-      low: Math.round(Math.max(0, Math.min(100, low)) * 10) / 10,
+      open: Math.round(open * 10) / 10,
+      high: Math.round(high * 10) / 10,
+      low: Math.round(low * 10) / 10,
       close: Math.round(close * 10) / 10,
       volume: Math.abs(close - open) * 100,
-      details,
+      details: avgDetails,
     });
   }
   
@@ -333,61 +318,47 @@ function generateDayKLine(
 }
 
 /**
- * 生成月K线（当年每月）- 优化版
+ * 生成月K线（当年每月）
  */
-function generateMonthKLine(
+function generateMonthKLineFromDays(
   year: number,
   daYun: any,
   liuNian: string,
   analysis: CompleteBaziAnalysis
 ): KLineData[] {
   const kline: KLineData[] = [];
-  const baseScore = calculateBaseScore(analysis);
-  
-  const daYunEffect = calculateDaYunEffect(daYun, analysis);
-  const daYunGanZhi = daYun?.ganZhi || '乙酉';
-  const liuNianEffect = calculateLiuNianEffect(liuNian, daYunGanZhi, analysis);
   
   for (let month = 1; month <= 12; month++) {
-    const liuYueEffect = calculateLiuYueEffect(month, liuNian, analysis);
-    const liuYue = calculateYueZhu(year, month).join('');
+    // 获取当月每天的数据
+    const dayData = generateDayKLineFromShiChen(year, month, daYun, liuNian, analysis);
     
-    // 计算当月30天的平均（简化）
-    const daysInMonth = new Date(year, month, 0).getDate();
-    let monthTotalScore = 0;
+    // 计算当月的开高收低（基于30天）
+    const dayCloseScores = dayData.map(d => d.details.overall);
+    const open = dayCloseScores[0];
+    const close = dayCloseScores[dayCloseScores.length - 1];
+    const high = Math.max(...dayData.map(d => d.high));
+    const low = Math.min(...dayData.map(d => d.low));
     
-    for (let day = 1; day <= daysInMonth; day++) {
-      const liuRiEffect = calculateLiuRiEffect(day, month, liuYue, analysis);
-      // 简化：每天取中间值
-      const dayScore = baseScore + daYunEffect + liuNianEffect + liuYueEffect + liuRiEffect;
-      monthTotalScore += Math.max(0, Math.min(100, dayScore));
-    }
-    const overall = monthTotalScore / daysInMonth;
-    
-    const variation = 5;
-    const details = {
-      career: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
-      wealth: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
-      love: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
-      health: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
+    // 计算当月的分项平均
+    const avgDetails = {
+      career: Math.round(dayData.reduce((a, b) => a + b.details.career, 0) / dayData.length),
+      wealth: Math.round(dayData.reduce((a, b) => a + b.details.wealth, 0) / dayData.length),
+      love: Math.round(dayData.reduce((a, b) => a + b.details.love, 0) / dayData.length),
+      health: Math.round(dayData.reduce((a, b) => a + b.details.health, 0) / dayData.length),
       overall: 0,
     };
-    details.overall = calculateWeightedOverall(details);
     
-    const open = overall + (Math.random() - 0.5) * 4;
-    const close = overall;
-    const high = Math.max(open, close) + Math.random() * 3;
-    const low = Math.min(open, close) - Math.random() * 3;
+    avgDetails.overall = calculateWeightedOverall(avgDetails);
     
     kline.push({
       time: `${year}-${month.toString().padStart(2, '0')}`,
       label: `${month}月`,
-      open: Math.round(Math.max(0, Math.min(100, open)) * 10) / 10,
-      high: Math.round(Math.max(0, Math.min(100, high)) * 10) / 10,
-      low: Math.round(Math.max(0, Math.min(100, low)) * 10) / 10,
+      open: Math.round(open * 10) / 10,
+      high: Math.round(high * 10) / 10,
+      low: Math.round(low * 10) / 10,
       close: Math.round(close * 10) / 10,
       volume: Math.abs(close - open) * 1000,
-      details,
+      details: avgDetails,
     });
   }
   
@@ -395,60 +366,53 @@ function generateMonthKLine(
 }
 
 /**
- * 生成年K线（终身每年）- 优化版，确保80年平均等于八字综合分
+ * 生成年K线（终身每年）
  */
-function generateYearKLine(
+function generateYearKLineFromMonths(
   birthYear: number,
   years: number,
-  daYunList: any[],
+  daYun: any[],
   analysis: CompleteBaziAnalysis
 ): KLineData[] {
   const kline: KLineData[] = [];
   const startYear = birthYear + 7; // 7岁起运
-  const targetOverall = analysis.scores.overall; // 八字综合分
-  const baseScore = calculateBaseScore(analysis);
+  const targetOverall = analysis.scores.overall;
   
   // 生成原始数据
   for (let year = startYear; year < startYear + years; year++) {
-    const currentDaYun = daYunList.find((d: any) => year >= d.开始年份 && year <= d.结束年份) || daYunList[0];
+    const currentDaYun = daYun.find((d: any) => year >= d.开始年份 && year <= d.结束年份) || daYun[0];
     const liuNian = calculateLiuNianGanZhi(year);
     
-    const daYunEffect = calculateDaYunEffect(currentDaYun, analysis);
-    const liuNianEffect = calculateLiuNianEffect(liuNian, currentDaYun.ganZhi, analysis);
+    // 获取当年每月的数据
+    const monthData = generateMonthKLineFromDays(year, currentDaYun, liuNian, analysis);
     
-    // 计算当年12个月的平均（简化）
-    let yearTotalScore = 0;
-    for (let month = 1; month <= 12; month++) {
-      const liuYueEffect = calculateLiuYueEffect(month, liuNian, analysis);
-      const monthScore = baseScore + daYunEffect + liuNianEffect + liuYueEffect;
-      yearTotalScore += Math.max(0, Math.min(100, monthScore));
-    }
-    const overall = yearTotalScore / 12;
+    // 计算当年的开高收低
+    const monthCloseScores = monthData.map(d => d.details.overall);
+    const open = monthCloseScores[0];
+    const close = monthCloseScores[monthCloseScores.length - 1];
+    const high = Math.max(...monthData.map(d => d.high));
+    const low = Math.min(...monthData.map(d => d.low));
     
-    const variation = 6;
-    const details = {
-      career: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
-      wealth: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
-      love: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
-      health: Math.max(0, Math.min(100, Math.round(overall + (Math.random() - 0.5) * variation * 2))),
+    // 计算当年的分项平均
+    const avgDetails = {
+      career: Math.round(monthData.reduce((a, b) => a + b.details.career, 0) / 12),
+      wealth: Math.round(monthData.reduce((a, b) => a + b.details.wealth, 0) / 12),
+      love: Math.round(monthData.reduce((a, b) => a + b.details.love, 0) / 12),
+      health: Math.round(monthData.reduce((a, b) => a + b.details.health, 0) / 12),
       overall: 0,
     };
-    details.overall = calculateWeightedOverall(details);
     
-    const open = overall + (Math.random() - 0.5) * 5;
-    const close = overall;
-    const high = Math.max(open, close) + Math.random() * 4;
-    const low = Math.min(open, close) - Math.random() * 4;
+    avgDetails.overall = calculateWeightedOverall(avgDetails);
     
     kline.push({
       time: year.toString(),
       label: `${year}年`,
-      open: Math.round(Math.max(0, Math.min(100, open)) * 10) / 10,
-      high: Math.round(Math.max(0, Math.min(100, high)) * 10) / 10,
-      low: Math.round(Math.max(0, Math.min(100, low)) * 10) / 10,
+      open: Math.round(open * 10) / 10,
+      high: Math.round(high * 10) / 10,
+      low: Math.round(low * 10) / 10,
       close: Math.round(close * 10) / 10,
       volume: Math.abs(close - open) * 10000,
-      details,
+      details: avgDetails,
     });
   }
   
@@ -459,7 +423,6 @@ function generateYearKLine(
   for (const item of kline) {
     const adjustedClose = Math.max(0, Math.min(100, item.close + adjustment));
     
-    // 避免除以零
     if (item.close > 0) {
       const ratio = adjustedClose / item.close;
       
@@ -473,11 +436,10 @@ function generateYearKLine(
       item.details.love = Math.max(0, Math.min(100, Math.round(item.details.love * ratio)));
       item.details.health = Math.max(0, Math.min(100, Math.round(item.details.health * ratio)));
     } else {
-      // 如果原值为0，直接设置为调整后的值
       item.close = Math.round(adjustedClose * 10) / 10;
-      item.open = Math.round(adjustedClose * 10) / 10;
-      item.high = Math.round(Math.min(100, adjustedClose + 2) * 10) / 10;
-      item.low = Math.round(Math.max(0, adjustedClose - 2) * 10) / 10;
+      item.open = item.close;
+      item.high = Math.min(100, item.close + 2);
+      item.low = Math.max(0, item.close - 2);
       
       item.details.career = Math.round(adjustedClose);
       item.details.wealth = Math.round(adjustedClose);
@@ -504,70 +466,36 @@ export function generateLifeKLine(
   targetMonth?: number,
   targetDay?: number
 ): KLineData[] {
-  try {
-    // Step 1: Get Bazi Detail
-    let detail;
-    try {
-      detail = getBaziDetail(birthYear, birthMonth, birthDay, birthHour, gender);
-    } catch (e) {
-      console.error('getBaziDetail failed:', e);
-      throw new Error(`getBaziDetail failed: ${(e as Error).message}`);
+  const detail = getBaziDetail(birthYear, birthMonth, birthDay, birthHour, gender);
+  const analysis = analyzeBaziComplete(detail);
+  const daYun = calculateDaYun(birthYear, birthMonth, birthDay, birthHour, gender);
+  
+  const ty = targetYear || new Date().getFullYear();
+  const tm = targetMonth || new Date().getMonth() + 1;
+  const td = targetDay || new Date().getDate();
+  
+  switch (period) {
+    case '1d': {
+      const currentDaYun = daYun.find((d: any) => ty >= d.开始年份 && ty <= d.结束年份) || daYun[0];
+      const liuNian = calculateLiuNianGanZhi(ty);
+      return generateShiChenKLine(ty, tm, td, currentDaYun, liuNian, analysis);
     }
-    
-    // Step 2: Analyze Bazi
-    let analysis;
-    try {
-      analysis = analyzeBaziComplete(detail);
-    } catch (e) {
-      console.error('analyzeBaziComplete failed:', e);
-      throw new Error(`analyzeBaziComplete failed: ${(e as Error).message}`);
+    case '1m': {
+      const currentDaYun = daYun.find((d: any) => ty >= d.开始年份 && ty <= d.结束年份) || daYun[0];
+      const liuNian = calculateLiuNianGanZhi(ty);
+      return generateDayKLineFromShiChen(ty, tm, currentDaYun, liuNian, analysis);
     }
-    
-    // Step 3: Calculate DaYun
-    let daYun;
-    try {
-      daYun = calculateDaYun(birthYear, birthMonth, birthDay, birthHour, gender);
-    } catch (e) {
-      console.error('calculateDaYun failed:', e);
-      throw new Error(`calculateDaYun failed: ${(e as Error).message}`);
+    case '1y': {
+      const currentDaYun = daYun.find((d: any) => ty >= d.开始年份 && ty <= d.结束年份) || daYun[0];
+      const liuNian = calculateLiuNianGanZhi(ty);
+      return generateMonthKLineFromDays(ty, currentDaYun, liuNian, analysis);
     }
-    
-    const ty = targetYear || new Date().getFullYear();
-    const tm = targetMonth || new Date().getMonth() + 1;
-    const td = targetDay || new Date().getDate();
-    
-    // Step 4: Generate K-line based on period
-    try {
-      switch (period) {
-        case '1d': {
-          const currentDaYun = daYun.find((d: any) => ty >= d.开始年份 && ty <= d.结束年份) || daYun[0];
-          const liuNian = calculateLiuNianGanZhi(ty);
-          return generateShiChenKLine(ty, tm, td, currentDaYun, liuNian, analysis);
-        }
-        case '1m': {
-          const currentDaYun = daYun.find((d: any) => ty >= d.开始年份 && ty <= d.结束年份) || daYun[0];
-          const liuNian = calculateLiuNianGanZhi(ty);
-          return generateDayKLine(ty, tm, currentDaYun, liuNian, analysis);
-        }
-        case '1y': {
-          const currentDaYun = daYun.find((d: any) => ty >= d.开始年份 && ty <= d.结束年份) || daYun[0];
-          const liuNian = calculateLiuNianGanZhi(ty);
-          return generateMonthKLine(ty, currentDaYun, liuNian, analysis);
-        }
-        case '10y':
-          return generateYearKLine(birthYear, 10, daYun, analysis);
-        case 'all':
-          return generateYearKLine(birthYear, 80, daYun, analysis);
-        default:
-          return generateYearKLine(birthYear, 80, daYun, analysis);
-      }
-    } catch (e) {
-      console.error('K-line generation failed:', e);
-      throw new Error(`K-line generation failed: ${(e as Error).message}`);
-    }
-  } catch (error) {
-    console.error('Error in generateLifeKLine:', error);
-    throw error;
+    case '10y':
+      return generateYearKLineFromMonths(birthYear, 10, daYun, analysis);
+    case 'all':
+      return generateYearKLineFromMonths(birthYear, 80, daYun, analysis);
+    default:
+      return generateYearKLineFromMonths(birthYear, 80, daYun, analysis);
   }
 }
 
