@@ -264,7 +264,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 新增：人生K线生成接口（简化版）
+// 新增：人生K线生成接口（真实八字版）
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   
@@ -279,8 +279,18 @@ export async function GET(request: NextRequest) {
   const targetDay = parseInt(searchParams.get('targetDay') || new Date().getDate().toString());
   
   try {
-    // 简化版：直接生成模拟数据，避免复杂计算
-    const klineData = generateSimpleKLine(period, targetYear, targetMonth, targetDay);
+    // 使用真实八字计算（优化版）
+    const klineData = generateRealKLine(
+      period,
+      birthYear,
+      birthMonth,
+      birthDay,
+      birthHour,
+      gender,
+      targetYear,
+      targetMonth,
+      targetDay
+    );
     
     return NextResponse.json({
       success: true,
@@ -294,20 +304,175 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('KLine generation error:', error);
-    return NextResponse.json(
-      { success: false, error: 'KLine generation failed', message: (error as Error).message },
-      { status: 500 }
-    );
+    // 如果真实计算失败，返回简化版数据
+    const fallbackData = generateSimpleKLine(period, targetYear, targetMonth, targetDay);
+    return NextResponse.json({
+      success: true,
+      data: {
+        period,
+        birthInfo: { birthYear, birthMonth, birthDay, birthHour, gender },
+        targetInfo: { targetYear, targetMonth, targetDay },
+        kline: fallbackData,
+        count: fallbackData.length,
+        fallback: true,
+      },
+    });
   }
 }
 
-// 简化版K线生成（避免复杂计算）
+// 真实八字K线生成（优化版）
+function generateRealKLine(
+  period: KLinePeriod,
+  birthYear: number,
+  birthMonth: number,
+  birthDay: number,
+  birthHour: number,
+  gender: 'male' | 'female',
+  targetYear: number,
+  targetMonth: number,
+  targetDay: number
+) {
+  // 获取八字基础数据
+  const detail = getBaziDetail(birthYear, birthMonth, birthDay, birthHour, gender);
+  const analysis = analyzeBaziComplete(detail);
+  const baseScore = analysis.scores.overall; // 使用八字综合分作为基础
+  
+  const kline: any[] = [];
+  
+  if (period === '1d') {
+    // 12个时辰 - 基于八字日柱和时辰计算
+    const shichen = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+    const shiEffects = [0, -2, 2, 3, 1, -1, -3, -2, 2, 4, 1, -1]; // 时辰对日主的影响
+    
+    for (let i = 0; i < 12; i++) {
+      const effect = shiEffects[i];
+      const score = Math.max(0, Math.min(100, baseScore + effect + (Math.random() - 0.5) * 5));
+      
+      kline.push({
+        time: `${targetYear}-${targetMonth}-${targetDay} ${shichen[i]}时`,
+        label: `${shichen[i]}时`,
+        open: Math.round(score * 10) / 10,
+        high: Math.round(score * 10) / 10,
+        low: Math.round(score * 10) / 10,
+        close: Math.round(score * 10) / 10,
+        volume: 0,
+        details: {
+          career: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 4))),
+          wealth: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 4))),
+          love: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 4))),
+          health: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 4))),
+          overall: Math.round(score),
+        },
+      });
+    }
+  } else if (period === '1m') {
+    // 30天 - 基于流月计算
+    const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+    const monthEffect = (targetMonth % 12) - 6; // 月令影响
+    
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dayEffect = (d % 10) - 5;
+      const score = Math.max(0, Math.min(100, baseScore + monthEffect + dayEffect * 0.5 + (Math.random() - 0.5) * 3));
+      
+      kline.push({
+        time: `${targetYear}-${targetMonth}-${d}`,
+        label: `${d}日`,
+        open: Math.round((score - 2) * 10) / 10,
+        high: Math.round((score + 3) * 10) / 10,
+        low: Math.round((score - 3) * 10) / 10,
+        close: Math.round(score * 10) / 10,
+        volume: Math.round(Math.random() * 100),
+        details: {
+          career: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 5))),
+          wealth: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 5))),
+          love: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 5))),
+          health: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 5))),
+          overall: Math.round(score),
+        },
+      });
+    }
+  } else if (period === '1y') {
+    // 12个月 - 基于流年计算
+    const yearGan = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'][(targetYear - 4) % 10];
+    const yearEffect = yearGan === '丙' || yearGan === '丁' ? -5 : yearGan === '庚' || yearGan === '辛' ? 5 : 0;
+    
+    for (let m = 1; m <= 12; m++) {
+      const monthEffect = (m % 12) - 6;
+      const score = Math.max(0, Math.min(100, baseScore + yearEffect + monthEffect + (Math.random() - 0.5) * 4));
+      
+      kline.push({
+        time: `${targetYear}-${m}`,
+        label: `${m}月`,
+        open: Math.round((score - 3) * 10) / 10,
+        high: Math.round((score + 5) * 10) / 10,
+        low: Math.round((score - 5) * 10) / 10,
+        close: Math.round(score * 10) / 10,
+        volume: Math.round(Math.random() * 1000),
+        details: {
+          career: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 6))),
+          wealth: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 6))),
+          love: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 6))),
+          health: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 6))),
+          overall: Math.round(score),
+        },
+      });
+    }
+  } else {
+    // 80年 - 基于大运和流年计算
+    const daYun = calculateDaYun(birthYear, birthMonth, birthDay, birthHour, gender);
+    const startYear = birthYear + 7; // 7岁起运
+    
+    for (let y = startYear; y < startYear + 80; y++) {
+      // 找当前大运
+      const currentDaYun = daYun.find((d: any) => y >= d.开始年份 && y <= d.结束年份);
+      const daYunEffect = currentDaYun ? (currentDaYun.ganZhi[0] === '乙' ? 5 : currentDaYun.ganZhi[0] === '丙' ? -3 : 0) : 0;
+      
+      const yearGan = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'][(y - 4) % 10];
+      const yearEffect = yearGan === '丙' || yearGan === '丁' ? -5 : yearGan === '庚' || yearGan === '辛' ? 5 : 0;
+      
+      const score = Math.max(0, Math.min(100, baseScore + daYunEffect + yearEffect + (Math.random() - 0.5) * 5));
+      
+      kline.push({
+        time: `${y}`,
+        label: `${y}年`,
+        open: Math.round((score - 5) * 10) / 10,
+        high: Math.round((score + 8) * 10) / 10,
+        low: Math.round((score - 8) * 10) / 10,
+        close: Math.round(score * 10) / 10,
+        volume: Math.round(Math.random() * 10000),
+        details: {
+          career: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 8))),
+          wealth: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 8))),
+          love: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 8))),
+          health: Math.round(Math.max(0, Math.min(100, score + (Math.random() - 0.5) * 8))),
+          overall: Math.round(score),
+        },
+      });
+    }
+    
+    // 调整使80年平均等于八字综合分
+    const currentAvg = kline.reduce((a, b) => a + b.close, 0) / kline.length;
+    const adjustment = baseScore - currentAvg;
+    
+    for (const item of kline) {
+      const adjustedClose = Math.max(0, Math.min(100, item.close + adjustment));
+      item.close = Math.round(adjustedClose * 10) / 10;
+      item.open = Math.round(Math.max(0, Math.min(100, item.open + adjustment)) * 10) / 10;
+      item.high = Math.round(Math.max(0, Math.min(100, item.high + adjustment)) * 10) / 10;
+      item.low = Math.round(Math.max(0, Math.min(100, item.low + adjustment)) * 10) / 10;
+      item.details.overall = Math.round(adjustedClose);
+    }
+  }
+  
+  return kline;
+}
+
+// 简化版K线生成（备用）
 function generateSimpleKLine(period: KLinePeriod, year: number, month: number, day: number) {
   const kline: any[] = [];
   const baseScore = 65;
   
   if (period === '1d') {
-    // 12个时辰
     const shichen = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
     for (let i = 0; i < 12; i++) {
       const score = Math.max(0, Math.min(100, baseScore + (Math.random() - 0.5) * 20));
@@ -329,7 +494,6 @@ function generateSimpleKLine(period: KLinePeriod, year: number, month: number, d
       });
     }
   } else if (period === '1m') {
-    // 30天
     const daysInMonth = new Date(year, month, 0).getDate();
     for (let d = 1; d <= daysInMonth; d++) {
       const score = Math.max(0, Math.min(100, baseScore + (Math.random() - 0.5) * 20));
@@ -351,7 +515,6 @@ function generateSimpleKLine(period: KLinePeriod, year: number, month: number, d
       });
     }
   } else if (period === '1y') {
-    // 12个月
     for (let m = 1; m <= 12; m++) {
       const score = Math.max(0, Math.min(100, baseScore + (Math.random() - 0.5) * 20));
       kline.push({
@@ -372,7 +535,6 @@ function generateSimpleKLine(period: KLinePeriod, year: number, month: number, d
       });
     }
   } else {
-    // 80年
     for (let y = year; y < year + 80; y++) {
       const score = Math.max(0, Math.min(100, baseScore + (Math.random() - 0.5) * 20));
       kline.push({
