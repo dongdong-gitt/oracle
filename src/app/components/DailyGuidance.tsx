@@ -22,10 +22,14 @@ interface DailyData {
   };
   yongShen: string;
   jiShen: string;
+  shiChen: {
+    time: string;
+    score: number;
+  }[];
 }
 
 export default function DailyGuidance() {
-  const { birthData } = useUser();
+  const { birthData, baziResult } = useUser();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [dailyData, setDailyData] = useState<DailyData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -55,37 +59,44 @@ export default function DailyGuidance() {
         targetDay: day.toString(),
       });
       
-      console.log('Fetching daily data:', params.toString());
-      
       const response = await fetch(`/api/kline?${params}`);
       const result = await response.json();
       
-      console.log('Daily API response:', result);
-      
       if (result.success && result.data && result.data.kline && result.data.kline.length > 0) {
         const klineData = result.data.kline;
-        const currentHour = new Date().getHours();
-        const currentShi = Math.floor(currentHour / 2);
-        const currentData = klineData[currentShi] || klineData[0];
         
-        // Generate daily guidance based on the data
-        const score = currentData.details?.overall || 50;
-        const yongShen = result.data.kline[0]?.markers?.yongShen || '金';
-        const jiShen = result.data.kline[0]?.markers?.jiShen || '火';
+        // 计算当日平均（12个时辰的加权平均）
+        const avgCareer = Math.round(klineData.reduce((a: number, b: any) => a + b.details.career, 0) / 12);
+        const avgWealth = Math.round(klineData.reduce((a: number, b: any) => a + b.details.wealth, 0) / 12);
+        const avgLove = Math.round(klineData.reduce((a: number, b: any) => a + b.details.love, 0) / 12);
+        const avgHealth = Math.round(klineData.reduce((a: number, b: any) => a + b.details.health, 0) / 12);
         
-        setDailyData(generateDailyGuidance(currentDate, score, yongShen, jiShen));
+        // 加权综合分
+        const overall = Math.round(avgCareer * 0.3 + avgWealth * 0.25 + avgLove * 0.25 + avgHealth * 0.2);
+        
+        // 时辰数据
+        const shiChen = klineData.map((item: any) => ({
+          time: item.label,
+          score: item.details.overall,
+        }));
+        
+        setDailyData(generateDailyGuidance(currentDate, {
+          career: avgCareer,
+          wealth: avgWealth,
+          love: avgLove,
+          health: avgHealth,
+          overall,
+        }, shiChen, baziResult?.detail?.用神 || '金', baziResult?.detail?.忌神 || '火'));
       } else {
-        console.warn('No daily data received, using fallback');
-        setDailyData(generateDailyGuidance(currentDate, 65, '金', '火'));
+        setDailyData(null);
       }
     } catch (error) {
       console.error('Failed to fetch daily data:', error);
-      // Fallback to default
-      setDailyData(generateDailyGuidance(currentDate, 65, '金', '火'));
+      setDailyData(null);
     } finally {
       setLoading(false);
     }
-  }, [birthData, currentDate]);
+  }, [birthData, currentDate, baziResult]);
 
   useEffect(() => {
     fetchDailyData();
@@ -101,10 +112,6 @@ export default function DailyGuidance() {
     const newDate = new Date(currentDate);
     newDate.setDate(newDate.getDate() + 1);
     setCurrentDate(newDate);
-  };
-
-  const handleToday = () => {
-    setCurrentDate(new Date());
   };
 
   if (!birthData) {
@@ -126,7 +133,7 @@ export default function DailyGuidance() {
   if (!dailyData) {
     return (
       <div className="flex items-center justify-center h-96 text-white/50">
-        暂无数据
+        加载中...
       </div>
     );
   }
@@ -250,8 +257,8 @@ export default function DailyGuidance() {
       </div>
 
       {/* 分项评分 */}
-      <div className="p-6 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
-        <h3 className="font-semibold text-white mb-4">分项运势</h3>
+      <div className="p-6 rounded-2xl mb-6" style={{ background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
+        <h3 className="font-semibold text-white mb-4">分项运势（12时辰平均）</h3>
         <div className="grid grid-cols-4 gap-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-400">{dailyData.score.career}</div>
@@ -272,6 +279,21 @@ export default function DailyGuidance() {
         </div>
       </div>
 
+      {/* 时辰运势 */}
+      <div className="p-6 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
+        <h3 className="font-semibold text-white mb-4">十二时辰运势</h3>
+        <div className="grid grid-cols-6 gap-2">
+          {dailyData.shiChen.map((shi, i) => (
+            <div key={i} className="text-center p-2 rounded-lg bg-white/5">
+              <div className="text-xs text-white/40">{shi.time}</div>
+              <div className={`text-lg font-bold ${shi.score >= 60 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {shi.score}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* 用神提示 */}
       <div className="mt-6 flex items-center justify-center gap-4 text-sm">
         <span className="text-white/40">今日用神: <span className="text-emerald-400">{dailyData.yongShen}</span></span>
@@ -283,7 +305,13 @@ export default function DailyGuidance() {
 }
 
 // Generate daily guidance based on score and elements
-function generateDailyGuidance(date: Date, score: number, yongShen: string, jiShen: string): DailyData {
+function generateDailyGuidance(
+  date: Date,
+  score: { career: number; wealth: number; love: number; health: number; overall: number },
+  shiChen: { time: string; score: number }[],
+  yongShen: string,
+  jiShen: string
+): DailyData {
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
   const day = date.getDate();
@@ -294,23 +322,23 @@ function generateDailyGuidance(date: Date, score: number, yongShen: string, jiSh
     '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十',
     '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十'];
   
-  // Generate guidance based on score
+  // Generate guidance based on overall score
   let guidance = '';
   let detail = '';
   let yi: string[] = [];
   let ji: string[] = [];
   
-  if (score >= 80) {
+  if (score.overall >= 80) {
     guidance = '天时地利，诸事顺遂';
     detail = '今日运势极佳，贵人相助，适合主动出击。事业上可大胆提出新想法，财运方面有意外之喜。感情运平稳，单身者有望遇到心仪对象。健康方面精神饱满。';
     yi = ['签约', '出行', '投资', '学习', '求职', '表白'];
     ji = ['争吵', '拖延', '冒险'];
-  } else if (score >= 60) {
+  } else if (score.overall >= 60) {
     guidance = '平稳发展，稳中求进';
     detail = '今日运势平稳，适合按部就班地处理日常事务。工作上保持专注即可，财运方面小有收获。感情运平淡但温馨，健康方面注意保暖。';
     yi = ['工作', '学习', '理财', '社交'];
     ji = ['冲动消费', '熬夜', '剧烈运动'];
-  } else if (score >= 40) {
+  } else if (score.overall >= 40) {
     guidance = '谨慎行事，以守为攻';
     detail = '今日运势欠佳，宜静不宜动。工作上避免与人争执，财运方面不宜大额支出。感情方面多沟通少猜疑，健康方面注意休息。';
     yi = ['休息', '反思', '整理', '学习'];
@@ -322,19 +350,6 @@ function generateDailyGuidance(date: Date, score: number, yongShen: string, jiSh
     ji = ['投资', '签约', '出行', '争吵', '熬夜', '饮酒'];
   }
   
-  // Adjust based on yongShen and jiShen
-  const wuxingActivities: Record<string, { yi: string[]; ji: string[] }> = {
-    '金': { yi: ['金融', '决断', '整理'], ji: ['冲动', '冒进'] },
-    '木': { yi: ['学习', '生长', '规划'], ji: ['砍伐', '破坏'] },
-    '水': { yi: ['沟通', '流动', '变通'], ji: ['固执', '停滞'] },
-    '火': { yi: ['表达', '热情', '创新'], ji: ['冲动', '急躁'] },
-    '土': { yi: ['稳定', '积累', '守信'], ji: ['变动', '冒险'] },
-  };
-  
-  if (wuxingActivities[yongShen]) {
-    yi = [...new Set([...yi, ...wuxingActivities[yongShen].yi])].slice(0, 6);
-  }
-  
   return {
     date: `${year}年${month}月${day}日`,
     lunar: `乙巳年 ${lunarMonths[month - 1]}月 ${lunarDays[day - 1] || '初一'}`,
@@ -343,14 +358,9 @@ function generateDailyGuidance(date: Date, score: number, yongShen: string, jiSh
     guidance,
     master: '子平大师',
     detail,
-    score: {
-      career: Math.round(score + (Math.random() - 0.5) * 10),
-      wealth: Math.round(score + (Math.random() - 0.5) * 10),
-      love: Math.round(score + (Math.random() - 0.5) * 10),
-      health: Math.round(score + (Math.random() - 0.5) * 10),
-      overall: score,
-    },
+    score,
     yongShen,
     jiShen,
+    shiChen,
   };
 }

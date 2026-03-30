@@ -53,6 +53,8 @@ export default function LifeKLine({ lang = 'zh' }: LifeKLineProps) {
     if (!birthData) return;
     
     setLoading(true);
+    setData([]); // Clear old data
+    
     try {
       const [year, month, day] = birthData.birthDate.split('-').map(Number);
       const hour = parseInt(birthData.birthTime.split(':')[0]);
@@ -69,63 +71,20 @@ export default function LifeKLine({ lang = 'zh' }: LifeKLineProps) {
         targetDay: targetDay.toString(),
       });
       
-      console.log('Fetching K-line data:', params.toString());
-      
       const response = await fetch(`/api/kline?${params}`);
       const result = await response.json();
       
-      console.log('K-line API response:', result);
-      
       if (result.success && result.data && result.data.kline && result.data.kline.length > 0) {
         setData(result.data.kline);
-      } else {
-        console.warn('No K-line data received, using fallback');
-        // Generate fallback data
-        setData(generateFallbackData(period));
       }
+      // API失败或返回空数据时，保持data为空，显示加载中
     } catch (error) {
       console.error('Failed to fetch K-line data:', error);
-      setData(generateFallbackData(period));
+      // 保持data为空，显示加载中
     } finally {
       setLoading(false);
     }
   }, [birthData, period, targetYear, targetMonth, targetDay]);
-
-  // Fallback data generator
-  const generateFallbackData = (p: PeriodType): KLineData[] => {
-    const count = p === '1d' ? 12 : p === '1m' ? 30 : p === '1y' ? 12 : p === '10y' ? 40 : 80;
-    const data: KLineData[] = [];
-    let baseScore = 65;
-    
-    for (let i = 0; i < count; i++) {
-      const variation = (Math.random() - 0.5) * 20;
-      const open = baseScore;
-      const close = Math.max(0, Math.min(100, baseScore + variation));
-      const high = Math.max(open, close) + Math.random() * 5;
-      const low = Math.min(open, close) - Math.random() * 5;
-      
-      data.push({
-        time: i.toString(),
-        label: p === '1d' ? `${i * 2}时` : p === '1m' ? `${i + 1}日` : p === '1y' ? `${i + 1}月` : `${2022 + i}年`,
-        open: Math.round(open * 10) / 10,
-        high: Math.round(Math.min(100, high) * 10) / 10,
-        low: Math.round(Math.max(0, low) * 10) / 10,
-        close: Math.round(close * 10) / 10,
-        volume: Math.floor(Math.random() * 1000),
-        details: {
-          career: Math.round(close),
-          wealth: Math.round(close),
-          love: Math.round(close),
-          health: Math.round(close),
-          overall: Math.round(close),
-        },
-      });
-      
-      baseScore = close;
-    }
-    
-    return data;
-  };
 
   useEffect(() => {
     fetchKLineData();
