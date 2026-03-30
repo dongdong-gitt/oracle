@@ -447,35 +447,43 @@ export function calculateBaziScore(
     }
   }
   
-  // 5. 计算各项分数
+  // 5. 计算各项分数（优化版本）
+  // 基准分提高到60分，让分数分布在60-90之间更合理
+  const BASE_SCORE = 60;
+  
   // 事业分 = 官杀(正官+七杀) + 印星(正印+偏印) + 大运加成
   const guansha = (shishenPower['正官'] || 0) + (shishenPower['七杀'] || 0);
   const yinxing = (shishenPower['正印'] || 0) + (shishenPower['偏印'] || 0);
-  let careerScore = Math.min(90, Math.max(40, 45 + guansha * 6 + yinxing * 4 + dayunBonus * 0.8));
+  // 官杀和印星旺则事业好，权重提高
+  let careerScore = Math.min(95, Math.max(50, BASE_SCORE + guansha * 8 + yinxing * 6 + dayunBonus));
   
   // 财运分 = 财星(正财+偏财) + 食伤(食神+伤官) + 大运加成
   const caixing = (shishenPower['正财'] || 0) + (shishenPower['偏财'] || 0);
   const shishang = (shishenPower['食神'] || 0) + (shishenPower['伤官'] || 0);
-  let wealthScore = Math.min(90, Math.max(40, 45 + caixing * 6 + shishang * 4 + dayunBonus * 0.6));
+  // 财星和食伤旺则财运好
+  let wealthScore = Math.min(95, Math.max(50, BASE_SCORE + caixing * 8 + shishang * 5 + dayunBonus * 0.8));
   
   // 感情分 = 配偶星(男看财女看官) + 桃花 + 合会
   let peiouxing = 0;
   // 根据日主性别判断配偶星
   if (detail.性别 === '男') {
     // 男命看财星
-    peiouxing = (shishenPower['正财'] || 0) + (shishenPower['偏财'] || 0) * 0.6;
+    peiouxing = (shishenPower['正财'] || 0) + (shishenPower['偏财'] || 0);
   } else {
     // 女命看官杀
-    peiouxing = (shishenPower['正官'] || 0) + (shishenPower['七杀'] || 0) * 0.6;
+    peiouxing = (shishenPower['正官'] || 0) + (shishenPower['七杀'] || 0);
   }
-  const taohua = detail.神煞?.日柱?.includes('桃花') ? 8 : 0;
-  let loveScore = Math.min(90, Math.max(40, 50 + peiouxing * 5 + taohua + dayunBonus * 0.4));
+  const taohua = detail.神煞?.日柱?.includes('桃花') ? 5 : 0;
+  // 配偶星旺则感情好
+  let loveScore = Math.min(95, Math.max(50, BASE_SCORE + peiouxing * 7 + taohua + dayunBonus * 0.6));
   
   // 健康分 = 五行平衡度 + 日主强弱适中
   const wuxingVariance = Math.max(...Object.values(wuxingPower)) - Math.min(...Object.values(wuxingPower));
-  const balanceScore = Math.max(0, 15 - wuxingVariance * 0.8); // 降低平衡分权重
-  const riZhuHealth = isStrong ? 10 : (riZhuRatio < 0.12 ? 5 : 12); // 降低日主健康分
-  let healthScore = Math.min(90, Math.max(35, 40 + balanceScore + riZhuHealth + dayunBonus * 0.2)); // 降低基础分和上限
+  // 五行越平衡越健康
+  const balanceScore = Math.max(0, 20 - wuxingVariance * 1.5);
+  // 日主强弱适中最健康（既不太强也不太弱）
+  const riZhuHealth = riZhuRatio >= 0.15 && riZhuRatio <= 0.25 ? 15 : 8;
+  let healthScore = Math.min(95, Math.max(50, BASE_SCORE + balanceScore + riZhuHealth + dayunBonus * 0.4));
   
   // 综合分 = 加权平均
   const overallScore = Math.round((careerScore * 0.3 + wealthScore * 0.25 + loveScore * 0.25 + healthScore * 0.2));
