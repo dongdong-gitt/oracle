@@ -6,7 +6,7 @@ import {
   Activity, Target, MessageCircle, Globe, Bell, Menu, BarChart3, Calendar,
   Download, Crown, Coins, Heart, Moon, Sun, ChevronRight, TrendingUp,
   BookOpen, Zap, Compass, Shield, AlertTriangle, ArrowUpRight, Clock,
-  Wallet, Briefcase, Sparkles, Send
+  Wallet, Briefcase, Sparkles, Send, LogOut
 } from 'lucide-react';
 import LifeKLine from './LifeKLine';
 import StrategyBoard from './StrategyBoard';
@@ -190,7 +190,7 @@ function AskOracleInput({ lang, onAsk }: { lang: Language; onAsk: (q: string) =>
 }
 
 export default function Dashboard() {
-  const { hasData: userHasData, birthData, baziResult } = useUser();
+  const { hasData: userHasData, birthData, baziResult, clearData } = useUser();
   const [lang, setLang] = useState<Language>('zh');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -283,6 +283,14 @@ export default function Dashboard() {
             <button className="p-2 hover:bg-white/5 rounded-full transition-colors relative">
               <Bell className="w-5 h-5 text-white/60" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-neon-pink rounded-full"></span>
+            </button>
+            <button 
+              onClick={clearData}
+              className="flex items-center gap-2 px-3 py-2 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors text-sm"
+              title={lang === 'zh' ? '退出登录' : 'Logout'}
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">{lang === 'zh' ? '退出' : 'Exit'}</span>
             </button>
           </div>
         </div>
