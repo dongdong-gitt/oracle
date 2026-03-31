@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 八字排盘计算模块
  * 基于 tyme4ts + cantian-tymext 权威算法
  */
@@ -473,7 +473,7 @@ export function calculateBaziScore(
     // 女命看官杀
     peiouxing = (shishenPower['正官'] || 0) + (shishenPower['七杀'] || 0);
   }
-  const taohua = detail.神煞?.日柱?.includes('桃花') ? 5 : 0;
+  const taohua = (detail.神煞?.日柱 || []).includes('桃花') ? 5 : 0;
   // 配偶星旺则感情好
   let loveScore = Math.min(95, Math.max(50, BASE_SCORE + peiouxing * 7 + taohua + dayunBonus * 0.6));
   
@@ -1094,10 +1094,10 @@ export function generateBaziTags(detail: any, analysis: CompleteBaziAnalysis): s
   
   // 神煞标签
   const shenSha = detail.神煞;
-  if (shenSha?.日柱?.includes('桃花')) tags.push('桃花入命');
-  if (shenSha?.日柱?.includes('天乙')) tags.push('天乙贵人');
-  if (shenSha?.日柱?.includes('文昌')) tags.push('文昌入命');
-  if (shenSha?.日柱?.includes('将星')) tags.push('将星入命');
+  if ((shenSha?.日柱 || []).includes('桃花')) tags.push('桃花入命');
+  if ((shenSha?.日柱 || []).includes('天乙')) tags.push('天乙贵人');
+  if ((shenSha?.日柱 || []).includes('文昌')) tags.push('文昌入命');
+  if ((shenSha?.日柱 || []).includes('将星')) tags.push('将星入命');
   
   // 刑冲标签
   const relations = detail.刑冲合会;
@@ -1146,3 +1146,4 @@ export function analyzeBaziComplete(detail: any, currentDaYun?: { ganZhi: string
   
   return analysis;
 }
+
