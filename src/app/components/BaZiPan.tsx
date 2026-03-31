@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Sparkles, User, MapPin, Clock, Calendar, RefreshCw } from 'lucide-react';
+import { Sparkles, User, MapPin, Clock, Calendar } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 
 interface BaziPanProps {
@@ -233,13 +233,6 @@ export default function BaZiPan({ data, birthData }: BaziPanProps) {
               </div>
             </div>
             <div className="text-right">
-              <button
-                onClick={clearData}
-                className="mb-3 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white/70 hover:text-white transition-all flex items-center gap-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                重新测算
-              </button>
               <div className="text-sm text-gray-400">日主</div>
               <div className="text-3xl font-bold text-cyan-400">{detail.日主}</div>
               <div className="text-sm text-gray-500">{detail.生肖}</div>

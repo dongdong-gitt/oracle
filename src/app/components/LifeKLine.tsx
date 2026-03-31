@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Maximize2, Settings, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 
 interface KLineData {
@@ -46,6 +46,7 @@ export default function LifeKLine({ lang = 'zh' }: LifeKLineProps) {
   const [loading, setLoading] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [stats, setStats] = useState<{ high: number; low: number; avg: number } | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
   // Fetch K-line data from API
@@ -76,6 +77,7 @@ export default function LifeKLine({ lang = 'zh' }: LifeKLineProps) {
       
       if (result.success && result.data && result.data.kline && result.data.kline.length > 0) {
         setData(result.data.kline);
+        setStats(result.data.stats || null);
       }
       // API失败或返回空数据时，保持data为空，显示加载中
     } catch (error) {
@@ -174,6 +176,14 @@ export default function LifeKLine({ lang = 'zh' }: LifeKLineProps) {
   // Generate X-axis labels
   const getXAxisLabels = () => {
     if (data.length === 0) return [];
+    // 日K显示所有12个时辰
+    if (period === '1d' && data.length === 12) {
+      return data.map((d, i) => ({
+        index: i,
+        label: d.label,
+      }));
+    }
+    // 其他周期最多显示6个
     const count = Math.min(6, data.length);
     const step = Math.floor(data.length / count);
     return Array.from({ length: count }, (_, i) => ({
@@ -245,9 +255,13 @@ export default function LifeKLine({ lang = 'zh' }: LifeKLineProps) {
         <div className="flex items-center gap-4 text-sm text-white/40">
           <span>高: <span className="text-white">{currentData?.high.toFixed(2) || '0.00'}</span></span>
           <span>低: <span className="text-white">{currentData?.low.toFixed(2) || '0.00'}</span></span>
-          <span>量: <span className="text-white">{currentData?.volume || 0}</span></span>
+          <span>均: <span className="text-white">{currentData ? ((currentData.open + currentData.high + currentData.low + currentData.close) / 4).toFixed(2) : '0.00'}</span></span>
         </div>
         <div className="flex items-center gap-4 ml-auto">
+          <span className="text-sm text-white/40">
+            {period === '1d' ? '日均得分' : period === '1m' ? '月均得分' : period === '1y' ? '年均得分' : period === '10y' ? '大运得分' : '人生得分'}: 
+            <span className="text-amber-400 font-semibold">{stats?.avg.toFixed(2) || '0.00'}</span>
+          </span>
           <div className="flex items-center gap-1 text-sm">
             <span className="w-3 h-0.5 bg-amber-400"></span>
             <span className="text-white/40">MA7</span>
@@ -311,14 +325,16 @@ export default function LifeKLine({ lang = 'zh' }: LifeKLineProps) {
             {/* X-axis labels */}
             {xAxisLabels.map(({ index, label }) => {
               const x = getX(index);
+              const isShiChen = period === '1d' && data.length === 12;
               return (
                 <text
                   key={index}
                   x={x}
-                  y={chartHeight - 10}
+                  y={chartHeight - (isShiChen ? 5 : 10)}
                   fill="rgba(255,255,255,0.4)"
-                  fontSize="10"
+                  fontSize={isShiChen ? "9" : "10"}
                   textAnchor="middle"
+                  transform={isShiChen ? `rotate(-30, ${x}, ${chartHeight - 5})` : undefined}
                 >
                   {label}
                 </text>
