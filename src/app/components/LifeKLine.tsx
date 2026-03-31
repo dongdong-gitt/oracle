@@ -206,25 +206,22 @@ export default function LifeKLine({ lang = 'zh' }: LifeKLineProps) {
     <div className="w-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <h3 className="text-lg font-semibold text-white">人生K线</h3>
-          <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
-            {(Object.keys(PERIOD_CONFIG) as PeriodType[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={`px-3 py-1 rounded-md text-sm transition-all ${
-                  period === p
-                    ? 'bg-white/10 text-white'
-                    : 'text-white/40 hover:text-white'
-                }`}
-              >
-                {PERIOD_CONFIG[p].label}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
+          {(Object.keys(PERIOD_CONFIG) as PeriodType[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`px-3 py-1 rounded-md text-sm transition-all ${
+                period === p
+                  ? 'bg-white/10 text-white'
+                  : 'text-white/40 hover:text-white'
+              }`}
+            >
+              {PERIOD_CONFIG[p].label}
+            </button>
+          ))}
         </div>
-        
+
         <div className="flex items-center gap-2">
           <button
             onClick={handlePrev}
