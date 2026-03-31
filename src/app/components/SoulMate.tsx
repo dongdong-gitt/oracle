@@ -147,13 +147,6 @@ export default function SoulMate() {
             <p className="text-white/60 leading-relaxed">{result.advice}</p>
           </div>
 
-          <button
-            onClick={() => setShowResult(false)}
-            className="px-8 py-3 rounded-full text-white/60 hover:text-white transition-colors"
-            style={{ background: 'rgba(255,255,255,0.05)' }}
-          >
-            重新测算
-          </button>
         </motion.div>
       )}
     </motion.div>
