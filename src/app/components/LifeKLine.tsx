@@ -36,10 +36,10 @@ const PERIOD_CONFIG: Record<PeriodType, { label: string; labelEn: string; days: 
   'all': { label: '终身', labelEn: 'Life', days: 29200 },
 };
 
-export default function LifeKLine({ lang = 'zh' }: LifeKLineProps) {
+export default function LifeKLine({ lang = 'zh', period: initialPeriod = '1y' }: LifeKLineProps) {
   const { birthData, baziResult } = useUser();
   const [data, setData] = useState<KLineData[]>([]);
-  const [period, setPeriod] = useState<PeriodType>('1y');
+  const [period, setPeriod] = useState<PeriodType>(initialPeriod);
   const [targetYear, setTargetYear] = useState(new Date().getFullYear());
   const [targetMonth, setTargetMonth] = useState(new Date().getMonth() + 1);
   const [targetDay, setTargetDay] = useState(new Date().getDate());
