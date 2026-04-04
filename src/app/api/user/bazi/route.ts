@@ -1,34 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/app/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-// 获取当前用户的八字数据
-export async function GET(req: NextRequest) {
+function normalizeGender(gender?: string) {
+  if (!gender) return 'MALE';
+  return gender.toUpperCase() === 'FEMALE' || gender.toLowerCase() === 'female' ? 'FEMALE' : 'MALE';
+}
+
+async function getCurrentUserId() {
+  const session = await auth();
+  return (session?.user as any)?.id as string | undefined;
+}
+
+export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: '未登录' },
-        { status: 401 }
-      );
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = session.user.id;
-
-    // 查找用户最新的八字记录
     const reading = await prisma.baziReading.findFirst({
       where: { userId },
       orderBy: { createdAt: 'desc' },
     });
 
     if (!reading) {
-      return NextResponse.json({
-        success: true,
-        data: null,
-        message: '没有找到八字数据',
-      });
+      return NextResponse.json({ success: true, data: null, message: 'No bazi data found' });
     }
 
     return NextResponse.json({
@@ -50,164 +47,102 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error('Get user bazi error:', error);
-    return NextResponse.json(
-      { success: false, error: '获取数据失败' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to fetch data' }, { status: 500 });
   }
 }
 
-// 保存用户的八字数据
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: '未登录' },
-        { status: 401 }
-      );
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = session.user.id;
     const body = await req.json();
-    
-    const {
-      name,
-      gender,
-      birthDate,
-      birthTime,
-      birthPlace,
-      country,
-      province,
-      city,
-      district,
-      baziData,
-      daYun,
-      liuNian,
-      aiAnalysis,
-      baseScores,
-    } = body;
-
-    // 创建新的八字记录
     const reading = await prisma.baziReading.create({
       data: {
         userId,
-        name,
-        gender: gender.toUpperCase(),
-        birthDate: new Date(birthDate),
-        birthTime,
-        birthPlace,
-        country,
-        province,
-        city,
-        district,
-        baziData: baziData || {},
-        daYun: daYun || {},
-        liuNian: liuNian || {},
-        aiAnalysis: aiAnalysis || null,
-        baseScores: baseScores || null,
+        name: body.name,
+        gender: normalizeGender(body.gender) as any,
+        birthDate: new Date(body.birthDate),
+        birthTime: body.birthTime,
+        birthPlace: body.birthPlace,
+        country: body.country,
+        province: body.province,
+        city: body.city,
+        district: body.district,
+        baziData: body.baziData || {},
+        daYun: body.daYun || {},
+        liuNian: body.liuNian || {},
+        aiAnalysis: body.aiAnalysis || null,
+        baseScores: body.baseScores || null,
+        klineData: body.klineData || null,
       },
     });
 
     return NextResponse.json({
       success: true,
-      data: {
-        id: reading.id,
-        savedAt: reading.createdAt,
-      },
-      message: '保存成功',
+      data: { id: reading.id, savedAt: reading.createdAt },
+      message: 'Saved',
     });
   } catch (error) {
     console.error('Save user bazi error:', error);
-    return NextResponse.json(
-      { success: false, error: '保存数据失败' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to save data' }, { status: 500 });
   }
 }
 
-// 更新用户的八字数据
 export async function PUT(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: '未登录' },
-        { status: 401 }
-      );
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = session.user.id;
     const body = await req.json();
-    const { readingId, ...updateData } = body;
+    const { readingId, notes, isFavorite, aiAnalysis, baseScores, klineData } = body;
 
-    // 更新八字记录
-    const reading = await prisma.baziReading.updateMany({
-      where: {
-        id: readingId,
-        userId, // 确保只能更新自己的数据
-      },
+    if (!readingId) {
+      return NextResponse.json({ success: false, error: 'Missing readingId' }, { status: 400 });
+    }
+
+    const updated = await prisma.baziReading.updateMany({
+      where: { id: readingId, userId },
       data: {
-        ...updateData,
-        updatedAt: new Date(),
+        ...(notes !== undefined ? { notes: String(notes) } : {}),
+        ...(isFavorite !== undefined ? { isFavorite: Boolean(isFavorite) } : {}),
+        ...(aiAnalysis !== undefined ? { aiAnalysis } : {}),
+        ...(baseScores !== undefined ? { baseScores } : {}),
+        ...(klineData !== undefined ? { klineData } : {}),
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: reading,
-      message: '更新成功',
-    });
+    return NextResponse.json({ success: true, data: updated, message: 'Updated' });
   } catch (error) {
     console.error('Update user bazi error:', error);
-    return NextResponse.json(
-      { success: false, error: '更新数据失败' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to update data' }, { status: 500 });
   }
 }
 
-// 删除用户的八字数据
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: '未登录' },
-        { status: 401 }
-      );
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = session.user.id;
     const { searchParams } = new URL(req.url);
     const readingId = searchParams.get('id');
-
     if (!readingId) {
-      return NextResponse.json(
-        { success: false, error: '缺少记录ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'Missing reading id' }, { status: 400 });
     }
 
     await prisma.baziReading.deleteMany({
-      where: {
-        id: readingId,
-        userId,
-      },
+      where: { id: readingId, userId },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: '删除成功',
-    });
+    return NextResponse.json({ success: true, message: 'Deleted' });
   } catch (error) {
     console.error('Delete user bazi error:', error);
-    return NextResponse.json(
-      { success: false, error: '删除数据失败' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to delete data' }, { status: 500 });
   }
 }

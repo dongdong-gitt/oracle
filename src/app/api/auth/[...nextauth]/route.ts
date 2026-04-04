@@ -1,27 +1,31 @@
 import NextAuth from 'next-auth';
-import { PrismaAdapter } from '@auth/prisma-adapter';
-import { prisma } from '@/app/lib/db';
 import Credentials from 'next-auth/providers/credentials';
+import { PrismaAdapter } from '@auth/prisma-adapter';
 import { z } from 'zod';
+import { prisma } from '@/app/lib/db';
+import { verifyOneTimeCode } from '@/server/auth/code';
 
-const credentialsSchema = z.object({
-  phone: z.string().optional(),
-  email: z.string().email().optional(),
+const phoneCredentialsSchema = z.object({
+  phone: z.string().min(3),
   code: z.string().length(6),
 });
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const emailCredentialsSchema = z.object({
+  email: z.string().email(),
+  code: z.string().length(6),
+});
+
+const nextAuthResult = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30天
+    maxAge: 30 * 24 * 60 * 60,
   },
   pages: {
     signIn: '/auth/login',
     error: '/auth/error',
   },
   providers: [
-    // 手机号验证码登录
     Credentials({
       id: 'phone',
       name: 'Phone',
@@ -30,30 +34,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         code: { label: 'Code', type: 'text' },
       },
       async authorize(credentials) {
-        const parsed = credentialsSchema.safeParse(credentials);
+        const parsed = phoneCredentialsSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
         const { phone, code } = parsed.data;
-        
-        // TODO: 验证短信验证码
-        // 这里应该调用短信服务商验证验证码
-        // 暂时直接通过，实际生产需要接入阿里云/腾讯云短信
-        if (code !== '123456') {
-          // 生产环境：验证真实验证码
-          // const isValid = await verifySmsCode(phone!, code);
-          // if (!isValid) return null;
-        }
+        if (!verifyOneTimeCode(code)) return null;
 
-        // 查找或创建用户
-        let user = await prisma.user.findUnique({
-          where: { phone: phone! },
-        });
-
+        let user = await prisma.user.findUnique({ where: { phone } });
         if (!user) {
           user = await prisma.user.create({
             data: {
-              phone: phone!,
-              name: `用户${phone!.slice(-4)}`,
+              phone,
+              name: `用户${phone.slice(-4)}`,
               membership: 'FREE',
             },
           });
@@ -61,15 +53,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         return {
           id: user.id,
-          email: user.email,
-          name: user.name,
-          phone: user.phone,
+          email: user.email ?? undefined,
+          name: user.name ?? undefined,
+          phone: user.phone ?? undefined,
           membership: user.membership,
+          role: user.role,
+          isGuest: user.isGuest,
         };
       },
     }),
-
-    // 邮箱验证码登录
     Credentials({
       id: 'email',
       name: 'Email',
@@ -78,25 +70,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         code: { label: 'Code', type: 'text' },
       },
       async authorize(credentials) {
-        const parsed = credentialsSchema.safeParse(credentials);
+        const parsed = emailCredentialsSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
         const { email, code } = parsed.data;
+        if (!verifyOneTimeCode(code)) return null;
 
-        // TODO: 验证邮箱验证码
-        if (code !== '123456') {
-          return null;
-        }
-
-        let user = await prisma.user.findUnique({
-          where: { email: email! },
-        });
-
+        let user = await prisma.user.findUnique({ where: { email } });
         if (!user) {
           user = await prisma.user.create({
             data: {
-              email: email!,
-              name: email!.split('@')[0],
+              email,
+              name: email.split('@')[0],
               membership: 'FREE',
             },
           });
@@ -104,10 +89,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         return {
           id: user.id,
-          email: user.email,
-          name: user.name,
-          phone: user.phone,
+          email: user.email ?? undefined,
+          name: user.name ?? undefined,
+          phone: user.phone ?? undefined,
           membership: user.membership,
+          role: user.role,
+          isGuest: user.isGuest,
         };
       },
     }),
@@ -116,25 +103,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
-        token.membership = user.membership;
-        token.phone = user.phone;
+        token.membership = (user as any).membership;
+        token.phone = (user as any).phone;
+        token.role = (user as any).role;
+        token.isGuest = (user as any).isGuest;
       }
-      
-      // 支持更新 session
+
       if (trigger === 'update' && session) {
-        token.membership = session.membership;
+        token.membership = (session as any).membership;
         token.name = session.name;
+        token.role = (session as any).role ?? token.role;
+        token.isGuest = (session as any).isGuest ?? token.isGuest;
       }
-      
+
       return token;
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string;
-        session.user.membership = token.membership as string;
-        session.user.phone = token.phone as string;
+      if (token && session.user) {
+        (session.user as any).id = token.id as string;
+        (session.user as any).membership = token.membership as string;
+        (session.user as any).phone = token.phone as string;
+        (session.user as any).role = token.role as string;
+        (session.user as any).isGuest = Boolean(token.isGuest);
       }
       return session;
     },
   },
 });
+
+export const { auth, signIn, signOut } = nextAuthResult;
+export const {
+  handlers: { GET, POST },
+} = nextAuthResult;

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import LifeKLine from './LifeKLine';
+import CycleCommandCenter from './CycleCommandCenter';
 
 export default function CycleTools() {
   return (
@@ -10,6 +11,7 @@ export default function CycleTools() {
       animate={{ opacity: 1 }}
       className="space-y-6"
     >
+      <CycleCommandCenter />
       <div
         className="p-6 rounded-2xl"
         style={{

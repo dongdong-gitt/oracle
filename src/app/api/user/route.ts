@@ -1,25 +1,22 @@
-import { auth } from '@/app/api/auth/[...nextauth]/route';
-import { userDb } from '@/app/lib/db';
 import { NextResponse } from 'next/server';
+import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { prisma, userDb } from '@/app/lib/db';
 
-// 获取当前用户信息
+async function getCurrentUserId() {
+  const session = await auth();
+  return (session?.user as any)?.id as string | undefined;
+}
+
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await userDb.getUserById(session.user.id);
-
+    const user = await userDb.getUserById(userId);
     if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     return NextResponse.json({
@@ -39,28 +36,35 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Get user error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// 更新用户信息
 export async function PATCH(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { name, avatar } = body;
+    const updates: { name?: string; avatar?: string } = {};
 
-    // TODO: 实现更新逻辑
+    if (typeof body?.name === 'string' && body.name.trim()) {
+      updates.name = body.name.trim();
+    }
+    if (typeof body?.avatar === 'string' && body.avatar.trim()) {
+      updates.avatar = body.avatar.trim();
+    }
+
+    if (!updates.name && !updates.avatar) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: updates,
+    });
 
     return NextResponse.json({
       success: true,
@@ -68,9 +72,6 @@ export async function PATCH(request: Request) {
     });
   } catch (error) {
     console.error('Update user error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -122,6 +122,8 @@ function buildStandardizedPrompt(params: {
   analysis: any;
 }): string {
   const { bazi, daYun, gender, name, analysis } = params;
+  const currentYear = new Date().getFullYear();
+  const yearRange = `${currentYear}-${currentYear + 2}`;
   
   // 基础八字信息
   let prompt = `【八字基础信息】
@@ -216,7 +218,7 @@ ${analysis.tags.map((tag: string) => `· ${tag}`).join('\n')}
 
 8. <h3>大运走势</h3>：简要分析当前和未来大运趋势
 
-9. <h3>流年建议</h3>：针对2025-2027年的具体建议
+9. <h3>流年建议</h3>：针对${yearRange}年的具体建议
 
 10. <h3>开运指南</h3>：${analysis ? '有利方位：' + analysis.yongShen.advice.favorable[0] + '；有利颜色：' + analysis.yongShen.advice.favorable[1] : '根据用神给出具体建议'}
 
@@ -225,6 +227,7 @@ ${analysis.tags.map((tag: string) => `· ${tag}`).join('\n')}
 - 每个部分用 <h3> 标签分隔
 - 关键结论用 <b> 加粗
 - 适当使用 <br/> 换行
+- “综合建议”必须输出不少于10条，使用 1. 2. 3. 连续编号，并尽量覆盖事业、财务、关系、健康、执行节奏
 - 总字数控制在 1500-2000 字`;
 
   return prompt;

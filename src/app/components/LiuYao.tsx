@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Coins, Sparkles, Compass, MapPin, Clock, Navigation } from 'lucide-react';
+import { useUser } from '../context/UserContext';
 
 type TabType = 'liuyao' | 'qimen';
 
@@ -29,6 +30,7 @@ const qimenDoors = [
 ];
 
 export default function LiuYaoQimen() {
+  const { birthData } = useUser();
   const [activeTab, setActiveTab] = useState<TabType>('liuyao');
   const [currentGua, setCurrentGua] = useState<typeof guaXiang[0] | null>(null);
   const [currentDoor, setCurrentDoor] = useState<typeof qimenDoors[0] | null>(null);
@@ -36,11 +38,36 @@ export default function LiuYaoQimen() {
   const [isCalculating, setIsCalculating] = useState(false);
   const [question, setQuestion] = useState('');
 
+  const hashSeed = (text: string) => {
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i += 1) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return Math.abs(hash >>> 0);
+  };
+
+  const pickIndex = (seedText: string, length: number) => {
+    if (length <= 0) return 0;
+    const seed = hashSeed(seedText);
+    return seed % length;
+  };
+
   const throwCoins = () => {
     setIsThrowing(true);
     setTimeout(() => {
-      const random = Math.floor(Math.random() * guaXiang.length);
-      setCurrentGua(guaXiang[random]);
+      const now = new Date();
+      const dateKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+      const seedText = [
+        'liuyao',
+        question.trim(),
+        birthData?.birthDate || '',
+        birthData?.birthTime || '',
+        birthData?.gender || '',
+        dateKey,
+      ].join('|');
+      const index = pickIndex(seedText, guaXiang.length);
+      setCurrentGua(guaXiang[index]);
       setIsThrowing(false);
     }, 2000);
   };
@@ -48,8 +75,18 @@ export default function LiuYaoQimen() {
   const calculateQimen = () => {
     setIsCalculating(true);
     setTimeout(() => {
-      const random = Math.floor(Math.random() * qimenDoors.length);
-      setCurrentDoor(qimenDoors[random]);
+      const now = new Date();
+      const dateHourKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${now.getHours()}`;
+      const seedText = [
+        'qimen',
+        question.trim(),
+        birthData?.birthDate || '',
+        birthData?.birthTime || '',
+        birthData?.gender || '',
+        dateHourKey,
+      ].join('|');
+      const index = pickIndex(seedText, qimenDoors.length);
+      setCurrentDoor(qimenDoors[index]);
       setIsCalculating(false);
     }, 2000);
   };

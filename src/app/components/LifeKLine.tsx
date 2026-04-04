@@ -1,83 +1,173 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Maximize2, Settings } from 'lucide-react';
-import { Language, t } from './Dashboard';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 
 interface KLineData {
+  year?: number;
   time: string;
+  label: string;
   open: number;
   high: number;
   low: number;
   close: number;
   volume: number;
+  details?: {
+    career: number;
+    wealth: number;
+    love: number;
+    health: number;
+    overall: number;
+  };
 }
+
+type PeriodType = '1d' | '1m' | '1y' | '10y' | 'all';
 
 interface LifeKLineProps {
-  lang: Language;
-  period: string;
+  lang?: 'zh' | 'en';
+  period?: string;
 }
 
-// Generate K-line data based on user's bazi
-const generateKLineDataFromBazi = (days: number, bazi: { day?: string; wuXing?: Record<string, string> } | null): KLineData[] => {
-  const data: KLineData[] = [];
-  let basePrice = 75;
-  
-  // Use user's day pillar for seed
-  const seed = bazi?.day ? bazi.day.charCodeAt(0) + bazi.day.charCodeAt(1) : 1234;
-  
-  for (let i = days; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    
-    // Generate pseudo-random but consistent values based on date and bazi
-    const daySeed = date.getTime() + seed;
-    const pseudoRandom = (offset: number) => {
-      const x = Math.sin(daySeed + offset) * 10000;
-      return x - Math.floor(x);
-    };
-    
-    const dayOfWeek = date.getDay();
-    const volatility = dayOfWeek === 0 || dayOfWeek === 6 ? 0.02 : 0.05;
-    const trend = Math.sin(i / 7) * 10;
-    
-    const open = basePrice + trend + (pseudoRandom(1) - 0.5) * 5;
-    const close = open + (pseudoRandom(2) - 0.5) * volatility * 100;
-    const high = Math.max(open, close) + pseudoRandom(3) * volatility * 50;
-    const low = Math.min(open, close) - pseudoRandom(4) * volatility * 50;
-    const volume = Math.floor(pseudoRandom(5) * 1000) + 500;
-    
-    data.push({
-      time: date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }),
-      open: Math.max(0, Math.min(100, open)),
-      high: Math.max(0, Math.min(100, high)),
-      low: Math.max(0, Math.min(100, low)),
-      close: Math.max(0, Math.min(100, close)),
-      volume
-    });
-    
-    basePrice = close;
-  }
-  
-  return data;
+const PERIOD_CONFIG: Record<PeriodType, { label: string; labelEn: string; days: number }> = {
+  '1d': { label: '日', labelEn: 'Day', days: 1 },
+  '1m': { label: '月', labelEn: 'Month', days: 30 },
+  '1y': { label: '年', labelEn: 'Year', days: 365 },
+  '10y': { label: '10年', labelEn: '10Y', days: 3650 },
+  'all': { label: '终身', labelEn: 'Life', days: 29200 },
 };
 
-export default function LifeKLine({ lang, period }: LifeKLineProps) {
-  const { baziResult } = useUser();
+function normalizePeriod(value?: string): PeriodType {
+  const v = String(value || '').toLowerCase();
+  if (v === '1d' || v === '1m' || v === '1y' || v === '10y' || v === 'all') return v;
+  return '1y';
+}
+
+export default function LifeKLine({ lang = 'zh', period: incomingPeriod = '1y' }: LifeKLineProps) {
+  const { birthData, baziResult } = useUser();
   const [data, setData] = useState<KLineData[]>([]);
+  const [period, setPeriod] = useState<PeriodType>(normalizePeriod(incomingPeriod));
+  const [targetYear, setTargetYear] = useState(new Date().getFullYear());
+  const [targetMonth, setTargetMonth] = useState(new Date().getMonth() + 1);
+  const [targetDay, setTargetDay] = useState(new Date().getDate());
+  const [loading, setLoading] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [stats, setStats] = useState<{ high: number; low: number; avg: number } | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const days = period === '1D' ? 30 : period === '1M' ? 365 : period === '1Y' ? 1825 : period === '10Y' ? 3650 : 18250;
-    setData(generateKLineDataFromBazi(days, baziResult));
-  }, [period, baziResult]);
+    setPeriod(normalizePeriod(incomingPeriod));
+  }, [incomingPeriod]);
+
+  // Fetch K-line data from API
+  const fetchKLineData = useCallback(async () => {
+    if (!birthData) return;
+    
+    setLoading(true);
+    setData([]); // Clear old data
+    
+    try {
+      const [year, month, day] = birthData.birthDate.split('-').map(Number);
+      const hour = parseInt(birthData.birthTime.split(':')[0]);
+      
+      const params = new URLSearchParams({
+        period,
+        birthYear: year.toString(),
+        birthMonth: month.toString(),
+        birthDay: day.toString(),
+        birthHour: hour.toString(),
+        gender: birthData.gender,
+        targetYear: targetYear.toString(),
+        targetMonth: targetMonth.toString(),
+        targetDay: targetDay.toString(),
+      });
+      
+      const response = await fetch(`/api/kline?${params}`);
+      const result = await response.json();
+      
+      if (result.success && result.data && result.data.kline && result.data.kline.length > 0) {
+        setData(result.data.kline);
+        setStats(result.data.stats || null);
+      }
+      // API失败或返回空数据时，保持data为空，显示加载中
+    } catch (error) {
+      console.error('Failed to fetch K-line data:', error);
+      // 保持data为空，显示加载中
+    } finally {
+      setLoading(false);
+    }
+  }, [birthData, period, targetYear, targetMonth, targetDay]);
+
+  useEffect(() => {
+    fetchKLineData();
+  }, [fetchKLineData]);
+
+  // Navigation handlers
+  const handlePrev = () => {
+    if (period === '1d') {
+      const date = new Date(targetYear, targetMonth - 1, targetDay);
+      date.setDate(date.getDate() - 1);
+      setTargetYear(date.getFullYear());
+      setTargetMonth(date.getMonth() + 1);
+      setTargetDay(date.getDate());
+    } else if (period === '1m') {
+      const date = new Date(targetYear, targetMonth - 2, 1);
+      setTargetYear(date.getFullYear());
+      setTargetMonth(date.getMonth() + 1);
+    } else if (period === '1y') {
+      setTargetYear(targetYear - 1);
+    } else if (period === '10y') {
+      setTargetYear(targetYear - 10);
+    }
+  };
+
+  const handleNext = () => {
+    if (period === '1d') {
+      const date = new Date(targetYear, targetMonth - 1, targetDay);
+      date.setDate(date.getDate() + 1);
+      setTargetYear(date.getFullYear());
+      setTargetMonth(date.getMonth() + 1);
+      setTargetDay(date.getDate());
+    } else if (period === '1m') {
+      const date = new Date(targetYear, targetMonth, 1);
+      setTargetYear(date.getFullYear());
+      setTargetMonth(date.getMonth() + 1);
+    } else if (period === '1y') {
+      setTargetYear(targetYear + 1);
+    } else if (period === '10y') {
+      setTargetYear(targetYear + 10);
+    }
+  };
+
+  const getDateDisplay = () => {
+    if (period === '1d') return `${targetYear}年${targetMonth}月${targetDay}日`;
+    if (period === '1m') return `${targetYear}年${targetMonth}月`;
+    if (period === '1y') return `${targetYear}年`;
+    if (period === '10y') return `${targetYear}-${targetYear + 9}年`;
+    return '终身运势';
+  };
 
   const currentData = hoveredIndex !== null ? data[hoveredIndex] : data[data.length - 1];
-  const isUp = currentData ? currentData.close >= currentData.open : true;
+  const currentDelta = currentData ? currentData.close - currentData.open : 0;
+  const isUp = currentDelta > 0;
+  const isDown = currentDelta < 0;
+
+  // Chart dimensions
+  const chartHeight = 400;
+  const chartWidth = chartRef.current?.clientWidth || 800;
+  const padding = { top: 20, right: 60, bottom: 40, left: 60 };
+  const plotWidth = chartWidth - padding.left - padding.right;
+  const plotHeight = chartHeight - padding.top - padding.bottom;
+
+  // Calculate scales
+  const maxPrice = Math.max(...data.map(d => d.high), 100);
+  const minPrice = Math.min(...data.map(d => d.low), 0);
+  const priceRange = maxPrice - minPrice || 100;
+
+  const getX = (index: number) => padding.left + (index / (data.length - 1 || 1)) * plotWidth;
+  const getY = (price: number) => padding.top + plotHeight - ((price - minPrice) / priceRange) * plotHeight;
 
   // Calculate MA lines
   const calculateMA = (period: number) => {
@@ -91,208 +181,304 @@ export default function LifeKLine({ lang, period }: LifeKLineProps) {
   const ma7 = calculateMA(7);
   const ma20 = calculateMA(20);
 
-  const chartHeight = 320;
-  const chartWidth = chartRef.current?.clientWidth || 800;
-  const candleWidth = Math.max(4, (chartWidth - 60) / data.length - 2);
-  const padding = 30;
+  // Generate Y-axis ticks
+  const yTicks = 5;
+  const yAxisLabels = Array.from({ length: yTicks + 1 }, (_, i) => 
+    Math.round(minPrice + (priceRange * i) / yTicks)
+  );
 
-  const maxPrice = Math.max(...data.map(d => d.high), 100);
-  const minPrice = Math.min(...data.map(d => d.low), 0);
-  const priceRange = maxPrice - minPrice || 1;
-
-  const priceToY = (price: number) => {
-    return chartHeight - padding - ((price - minPrice) / priceRange) * (chartHeight - 2 * padding);
+  // Generate X-axis labels
+  const getXAxisLabels = () => {
+    if (data.length === 0) return [];
+    // 日K显示所有12个时辰
+    if (period === '1d' && data.length === 12) {
+      return data.map((d, i) => ({
+        index: i,
+        label: d.label,
+      }));
+    }
+    // 其他周期最多显示6个
+    const count = Math.min(6, data.length);
+    const step = Math.floor(data.length / count);
+    return Array.from({ length: count }, (_, i) => ({
+      index: i * step,
+      label: data[i * step]?.label || '',
+    }));
   };
 
+  const xAxisLabels = getXAxisLabels();
+
+  if (!birthData) {
+    return (
+      <div className="flex items-center justify-center h-96 text-white/50">
+        请先输入出生信息
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-[#1e2329] rounded-xl border border-[#2b3139] overflow-hidden">
+    <div className="w-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#2b3139]">
-        <div className="flex items-center gap-4">
-          <h3 className="font-semibold text-lg">{t('lifeChart', lang)}</h3>
-          <span className="text-xs px-2 py-1 rounded bg-[#2b3139] text-gray-400">{period}</span>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
+          {(Object.keys(PERIOD_CONFIG) as PeriodType[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`px-3 py-1 rounded-md text-sm transition-all ${
+                period === p
+                  ? 'bg-white/10 text-white'
+                  : 'text-white/40 hover:text-white'
+              }`}
+            >
+              {PERIOD_CONFIG[p].label}
+            </button>
+          ))}
         </div>
+
         <div className="flex items-center gap-2">
-          <button className="p-2 hover:bg-[#2b3139] rounded-lg transition-colors">
-            <Settings className="w-4 h-4 text-gray-400" />
+          <button
+            onClick={handlePrev}
+            className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5 text-white/60" />
           </button>
-          <button className="p-2 hover:bg-[#2b3139] rounded-lg transition-colors">
-            <Maximize2 className="w-4 h-4 text-gray-400" />
+          <span className="text-sm text-white/60 min-w-[120px] text-center">
+            {getDateDisplay()}
+          </span>
+          <button
+            onClick={handleNext}
+            className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+          >
+            <ChevronRight className="w-5 h-5 text-white/60" />
           </button>
         </div>
       </div>
 
       {/* Price Info */}
-      <div className="px-4 py-3 border-b border-[#2b3139] flex items-center gap-6">
+      <div className="flex items-center gap-6 mb-4">
         <div>
-          <div className={`text-3xl font-mono font-bold ${isUp ? 'text-[#0ecb81]' : 'text-[#f6465d]'}`}>
-            {currentData?.close.toFixed(2) || '--'}
-          </div>
-          <div className={`text-sm font-mono ${isUp ? 'text-[#0ecb81]' : 'text-[#f6465d]'}`}>
-            {currentData ? `${isUp ? '+' : ''}${(currentData.close - currentData.open).toFixed(2)} (${((currentData.close - currentData.open) / currentData.open * 100).toFixed(2)}%)` : '--'}
-          </div>
+          <span className={`text-3xl font-bold ${isUp ? 'text-red-400' : isDown ? 'text-emerald-400' : 'text-slate-300'}`}>
+            {currentData?.close.toFixed(2) || '0.00'}
+          </span>
+          <span className="text-white/40 text-sm ml-2">综合运势分</span>
         </div>
-        <div className="flex gap-4 text-sm">
-          <div>
-            <span className="text-gray-500">高:</span>
-            <span className="font-mono ml-1 text-white">{currentData?.high.toFixed(2) || '--'}</span>
-          </div>
-          <div>
-            <span className="text-gray-500">低:</span>
-            <span className="font-mono ml-1 text-white">{currentData?.low.toFixed(2) || '--'}</span>
-          </div>
-          <div>
-            <span className="text-gray-500">量:</span>
-            <span className="font-mono ml-1 text-white">{currentData?.volume || '--'}</span>
-          </div>
+        <div className="flex items-center gap-4 text-sm text-white/40">
+          <span>高: <span className="text-white">{currentData?.high.toFixed(2) || '0.00'}</span></span>
+          <span>低: <span className="text-white">{currentData?.low.toFixed(2) || '0.00'}</span></span>
+          <span>均: <span className="text-white">{currentData ? ((currentData.open + currentData.high + currentData.low + currentData.close) / 4).toFixed(2) : '0.00'}</span></span>
         </div>
-        <div className="ml-auto flex items-center gap-3 text-xs">
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-0.5 bg-yellow-400"></div>
-            <span className="text-gray-400">MA7</span>
+        <div className="flex items-center gap-4 ml-auto">
+          <span className="text-sm text-white/40">
+            {period === '1d' ? '日均得分' : period === '1m' ? '月均得分' : period === '1y' ? '年均得分' : period === '10y' ? '大运得分' : '人生得分'}: 
+            <span className="text-amber-400 font-semibold">{stats?.avg.toFixed(2) || '0.00'}</span>
+          </span>
+          <div className="flex items-center gap-1 text-sm">
+            <span className="w-3 h-0.5 bg-amber-400"></span>
+            <span className="text-white/40">MA7</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-0.5 bg-purple-400"></div>
-            <span className="text-gray-400">MA20</span>
+          <div className="flex items-center gap-1 text-sm">
+            <span className="w-3 h-0.5 bg-purple-400"></span>
+            <span className="text-white/40">MA20</span>
           </div>
         </div>
       </div>
 
       {/* Chart */}
-      <div ref={chartRef} className="relative h-[320px] overflow-hidden">
-        {/* Grid Lines */}
-        <svg className="absolute inset-0 w-full h-full">
-          {/* Horizontal grid lines */}
-          {[0, 1, 2, 3, 4].map((i) => (
-            <line
-              key={`h-${i}`}
-              x1="0"
-              y1={padding + (i * (chartHeight - 2 * padding)) / 4}
-              x2="100%"
-              y2={padding + (i * (chartHeight - 2 * padding)) / 4}
-              stroke="#2b3139"
-              strokeWidth="1"
-              strokeDasharray="2,2"
-            />
-          ))}
-        </svg>
-
-        {/* Candles */}
-        <svg className="absolute inset-0 w-full h-full" style={{ paddingLeft: '30px' }}>
-          {data.map((d, i) => {
-            const x = i * (candleWidth + 2);
-            const isCandleUp = d.close >= d.open;
-            const color = isCandleUp ? '#0ecb81' : '#f6465d';
-            
-            return (
-              <g
-                key={i}
-                onMouseEnter={() => setHoveredIndex(i)}
-                onMouseLeave={() => setHoveredIndex(null)}
-                onClick={() => setSelectedIndex(i)}
-                className="cursor-pointer"
-              >
-                {/* Wick */}
-                <line
-                  x1={x + candleWidth / 2}
-                  y1={priceToY(d.high)}
-                  x2={x + candleWidth / 2}
-                  y2={priceToY(d.low)}
-                  stroke={color}
-                  strokeWidth="1"
-                />
-                {/* Body */}
-                <rect
-                  x={x}
-                  y={priceToY(Math.max(d.open, d.close))}
-                  width={candleWidth}
-                  height={Math.max(2, Math.abs(priceToY(d.open) - priceToY(d.close)))}
-                  fill={isCandleUp ? color : color}
-                  opacity={hoveredIndex === i ? 1 : 0.9}
-                />
-              </g>
-            );
-          })}
-
-          {/* MA7 Line */}
-          <path
-            d={ma7.map((val, i) => {
-              if (val === null) return '';
-              const x = i * (candleWidth + 2) + candleWidth / 2;
-              const y = priceToY(val);
-              return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-            }).join(' ')}
-            fill="none"
-            stroke="#fbbf24"
-            strokeWidth="1.5"
-            opacity="0.8"
-          />
-
-          {/* MA20 Line */}
-          <path
-            d={ma20.map((val, i) => {
-              if (val === null) return '';
-              const x = i * (candleWidth + 2) + candleWidth / 2;
-              const y = priceToY(val);
-              return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-            }).join(' ')}
-            fill="none"
-            stroke="#a855f7"
-            strokeWidth="1.5"
-            opacity="0.8"
-          />
-        </svg>
-
-        {/* Hover Tooltip */}
-        {hoveredIndex !== null && currentData && (
-          <div 
-            className="absolute top-4 left-4 p-3 rounded-lg bg-[#0b0e11]/90 border border-[#2b3139] text-xs z-10"
-          >
-            <div className="text-gray-400 mb-1">{currentData.time}</div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-              <span className="text-gray-500">开:</span>
-              <span className="font-mono text-white">{currentData.open.toFixed(2)}</span>
-              <span className="text-gray-500">高:</span>
-              <span className="font-mono text-white">{currentData.high.toFixed(2)}</span>
-              <span className="text-gray-500">低:</span>
-              <span className="font-mono text-white">{currentData.low.toFixed(2)}</span>
-              <span className="text-gray-500">收:</span>
-              <span className={`font-mono ${currentData.close >= currentData.open ? 'text-[#0ecb81]' : 'text-[#f6465d]'}`}>
-                {currentData.close.toFixed(2)}
-              </span>
+      <div 
+        ref={chartRef}
+        className="relative bg-[#1a1a2e]/50 rounded-xl border border-white/5 overflow-hidden"
+        style={{ height: chartHeight }}
+      >
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="px-4 py-3 rounded-2xl flex items-center gap-1.5" style={{ background: 'rgba(255,255,255,0.05)' }}>
+              <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce" />
+              <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce delay-100" />
+              <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce delay-200" />
             </div>
+          </div>
+        ) : data.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-white/50">
+            暂无数据
+          </div>
+        ) : (
+          <svg width="100%" height="100%" viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
+            {/* Grid lines */}
+            {yAxisLabels.map((_, i) => {
+              const y = padding.top + (plotHeight * i) / yTicks;
+              return (
+                <line
+                  key={i}
+                  x1={padding.left}
+                  y1={y}
+                  x2={chartWidth - padding.right}
+                  y2={y}
+                  stroke="rgba(255,255,255,0.05)"
+                  strokeWidth={1}
+                />
+              );
+            })}
+
+            {/* Y-axis labels */}
+            {yAxisLabels.map((label, i) => {
+              const y = padding.top + plotHeight - (plotHeight * i) / yTicks;
+              return (
+                <text
+                  key={i}
+                  x={chartWidth - padding.right + 10}
+                  y={y + 4}
+                  fill="rgba(255,255,255,0.4)"
+                  fontSize="10"
+                  textAnchor="start"
+                >
+                  {label}
+                </text>
+              );
+            })}
+
+            {/* X-axis labels */}
+            {xAxisLabels.map(({ index, label }) => {
+              const x = getX(index);
+              const isShiChen = period === '1d' && data.length === 12;
+              return (
+                <text
+                  key={index}
+                  x={x}
+                  y={chartHeight - (isShiChen ? 5 : 10)}
+                  fill="rgba(255,255,255,0.4)"
+                  fontSize={isShiChen ? "9" : "10"}
+                  textAnchor="middle"
+                  transform={isShiChen ? `rotate(-30, ${x}, ${chartHeight - 5})` : undefined}
+                >
+                  {label}
+                </text>
+              );
+            })}
+
+            {/* MA7 Line */}
+            <path
+              d={ma7
+                .map((v, i) => v !== null ? `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(v)}` : '')
+                .join(' ')}
+              fill="none"
+              stroke="#fbbf24"
+              strokeWidth={1.5}
+              opacity={0.8}
+            />
+
+            {/* MA20 Line */}
+            <path
+              d={ma20
+                .map((v, i) => v !== null ? `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(v)}` : '')
+                .join(' ')}
+              fill="none"
+              stroke="#a855f7"
+              strokeWidth={1.5}
+              opacity={0.8}
+            />
+
+            {/* Candles - 中国股市：红涨绿跌 */}
+            {data.map((d, i) => {
+              const x = getX(i);
+              const candleWidth = Math.max(2, plotWidth / data.length * 0.6);
+              const delta = d.close - d.open;
+              const color = delta > 0 ? '#ef4444' : delta < 0 ? '#10b981' : '#94a3b8';
+              
+              return (
+                <g key={i}>
+                  {/* High-low line */}
+                  <line
+                    x1={x}
+                    y1={getY(d.high)}
+                    x2={x}
+                    y2={getY(d.low)}
+                    stroke={color}
+                    strokeWidth={1}
+                  />
+                  {/* Open-close rect */}
+                  <rect
+                    x={x - candleWidth / 2}
+                    y={getY(Math.max(d.open, d.close))}
+                    width={candleWidth}
+                    height={Math.max(1, Math.abs(getY(d.open) - getY(d.close)))}
+                    fill={color}
+                    rx={1}
+                    onMouseEnter={() => setHoveredIndex(i)}
+                    onMouseLeave={() => setHoveredIndex(null)}
+                    onClick={() => setSelectedIndex(i)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </g>
+              );
+            })}
+
+            {/* Hover line */}
+            {hoveredIndex !== null && (
+              <line
+                x1={getX(hoveredIndex)}
+                y1={padding.top}
+                x2={getX(hoveredIndex)}
+                y2={chartHeight - padding.bottom}
+                stroke="rgba(255,255,255,0.2)"
+                strokeWidth={1}
+                strokeDasharray="4 4"
+              />
+            )}
+          </svg>
+        )}
+
+        {/* Hover tooltip */}
+        {hoveredIndex !== null && data[hoveredIndex] && (
+          <div
+            className="absolute bg-[#1a1a2e] border border-white/10 rounded-lg p-3 pointer-events-none"
+            style={{
+              left: Math.min(getX(hoveredIndex) + 10, chartWidth - 150),
+              top: 10,
+            }}
+          >
+            <div className="text-xs text-white/60 mb-1">{data[hoveredIndex].label}</div>
+            <div className="text-sm text-white">
+              开: <span className={data[hoveredIndex].close > data[hoveredIndex].open ? 'text-red-400' : data[hoveredIndex].close < data[hoveredIndex].open ? 'text-emerald-400' : 'text-slate-300'}>{data[hoveredIndex].open.toFixed(2)}</span>
+            </div>
+            <div className="text-sm text-white">
+              收: <span className={data[hoveredIndex].close > data[hoveredIndex].open ? 'text-red-400' : data[hoveredIndex].close < data[hoveredIndex].open ? 'text-emerald-400' : 'text-slate-300'}>{data[hoveredIndex].close.toFixed(2)}</span>
+            </div>
+            <div className="text-sm text-white/60">高: {data[hoveredIndex].high.toFixed(2)}</div>
+            <div className="text-sm text-white/60">低: {data[hoveredIndex].low.toFixed(2)}</div>
           </div>
         )}
       </div>
 
-      {/* Historical Event Modal */}
-      {selectedIndex !== null && data[selectedIndex] && (
+      {/* Detail Panel */}
+      {selectedIndex !== null && data[selectedIndex]?.details && (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-4 border-t border-[#2b3139] bg-amber-500/5"
+          className="mt-4 p-4 bg-white/5 rounded-xl border border-white/10"
         >
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-amber-400 text-lg">⚡</span>
+          <h4 className="text-white font-semibold mb-3">{data[selectedIndex].label} 运势详情</h4>
+          <div className="grid grid-cols-5 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-400">{data[selectedIndex].details?.career}</div>
+              <div className="text-xs text-white/40">事业</div>
             </div>
-            <div>
-              <div className="font-semibold text-amber-400 mb-1">
-                {lang === 'zh' ? '历史节点复盘' : 'Historical Review'}
-              </div>
-              <p className="text-sm text-gray-300 leading-relaxed">
-                {lang === 'zh' 
-                  ? `检测到 ${data[selectedIndex].time} 此处你的运势经历过大幅波动。当时是否经历了重要决策或转变？这种K线形态通常对应着人生转折点的能量释放。`
-                  : `Detected significant volatility at ${data[selectedIndex].time}. Did you experience major decisions or transitions then? This K-line pattern typically corresponds to energy release at life turning points.`
-                }
-              </p>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-amber-400">{data[selectedIndex].details?.wealth}</div>
+              <div className="text-xs text-white/40">财运</div>
             </div>
-            <button 
-              onClick={() => setSelectedIndex(null)}
-              className="ml-auto text-gray-400 hover:text-white"
-            >
-              ×
-            </button>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-pink-400">{data[selectedIndex].details?.love}</div>
+              <div className="text-xs text-white/40">感情</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-emerald-400">{data[selectedIndex].details?.health}</div>
+              <div className="text-xs text-white/40">健康</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-400">{data[selectedIndex].details?.overall}</div>
+              <div className="text-xs text-white/40">综合</div>
+            </div>
           </div>
         </motion.div>
       )}
