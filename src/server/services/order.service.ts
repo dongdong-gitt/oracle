@@ -3,6 +3,25 @@ import { prisma } from '@/app/lib/db';
 import { AppError } from '@/server/lib/errors';
 import { addMembershipYear, getMembershipPlan } from '@/server/services/membership.service';
 
+/**
+ * 生成有意义的订单编号
+ * 格式: ORC + 年月日时分秒(14位) + 4位随机数
+ * 例如: ORC202604151230001234
+ */
+function generateOrderNo(): string {
+  const now = new Date();
+  const dateStr = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+    String(now.getHours()).padStart(2, '0'),
+    String(now.getMinutes()).padStart(2, '0'),
+    String(now.getSeconds()).padStart(2, '0'),
+  ].join('');
+  const rand = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+  return `ORC${dateStr}${rand}`;
+}
+
 export interface CreateOrderInput {
   userId: string;
   membershipType: Membership;
@@ -17,6 +36,7 @@ export async function createMembershipOrder(input: CreateOrderInput) {
   const plan = getMembershipPlan(input.membershipType);
   return prisma.payment.create({
     data: {
+      orderNo: generateOrderNo(),
       userId: input.userId,
       amount: plan.price,
       currency: plan.currency,

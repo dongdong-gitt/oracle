@@ -65,14 +65,19 @@ export async function PATCH(request: NextRequest) {
     const user = await requireAuthUser();
     const body = await request.json();
     const orderId = String(body?.orderId || body?.id || '');
-    const action = String(body?.action || 'simulate_paid').toLowerCase();
+    const action = String(body?.action || 'confirm_paid').toLowerCase();
     const providerOrderId = body?.providerOrderId ? String(body.providerOrderId) : undefined;
 
     if (!orderId) {
       return fail(400, 'orderId is required', 'INVALID_INPUT');
     }
 
-    if (action !== 'simulate_paid' && action !== 'confirm_paid') {
+    // simulate_paid 仅允许在开发环境使用，生产环境禁止模拟支付
+    if (action === 'simulate_paid') {
+      if (process.env.NODE_ENV === 'production') {
+        return fail(403, 'Simulated payment is disabled in production', 'FORBIDDEN');
+      }
+    } else if (action !== 'confirm_paid') {
       return fail(400, 'unsupported action', 'INVALID_ACTION');
     }
 

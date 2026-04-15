@@ -148,7 +148,7 @@ export default function BirthForm({ onSubmit }: BirthFormProps) {
       </form>
 
       <p className="text-center text-xs text-gray-500 mt-6">
-        数据仅用于命盘计算，不会存储或分享
+        数据将加密存储于您的个人账户，仅用于命盘分析，不会对外分享
       </p>
     </motion.div>
   );

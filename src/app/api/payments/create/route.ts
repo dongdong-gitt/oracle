@@ -1,57 +1,43 @@
+/**
+ * @deprecated 此路由已废弃，请使用 POST /api/v1/orders
+ * 保留此文件仅为向后兼容，内部转发至统一的 order service
+ */
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/app/api/auth/[...nextauth]/route';
-import { prisma } from '@/app/lib/db';
-import { MEMBERSHIP_PLAN_MAP, MembershipTier } from '@/app/lib/membership';
-
-const SUPPORTED_PROVIDERS = new Set(['wechat', 'alipay', 'stripe']);
+import { requireAuthUser } from '@/server/auth/session';
+import { createMembershipOrder } from '@/server/services/order.service';
+import { handleRouteError } from '@/server/lib/http';
+import { Membership } from '@prisma/client';
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    const userId = (session?.user as any)?.id as string | undefined;
-
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
+    const user = await requireAuthUser();
     const body = await request.json();
-    const plan = (body?.plan || '').toUpperCase() as MembershipTier;
-    const provider = String(body?.provider || 'wechat').toLowerCase();
+    const plan = String(body?.plan || '').toUpperCase() as Membership;
+    const provider = String(body?.provider || 'stripe').toLowerCase();
 
     if (!['BASIC', 'PREMIUM', 'VIP'].includes(plan)) {
       return NextResponse.json({ error: 'Invalid membership plan' }, { status: 400 });
     }
 
-    if (!SUPPORTED_PROVIDERS.has(provider)) {
-      return NextResponse.json({ error: 'Unsupported payment provider' }, { status: 400 });
-    }
-
-    const planInfo = MEMBERSHIP_PLAN_MAP[plan];
-    const payment = await prisma.payment.create({
-      data: {
-        userId,
-        amount: planInfo.yearlyPriceCny,
-        currency: 'CNY',
-        type: 'MEMBERSHIP',
-        status: 'PENDING',
-        provider,
-        membershipType: plan,
-      },
+    // 统一使用 order service
+    const order = await createMembershipOrder({
+      userId: user.id,
+      membershipType: plan,
+      provider,
     });
 
     return NextResponse.json({
       success: true,
       data: {
-        paymentId: payment.id,
-        amount: payment.amount,
-        currency: payment.currency,
-        provider: payment.provider,
+        paymentId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        provider: order.provider,
         plan,
-        checkoutToken: `mock_${payment.id}`,
+        checkoutToken: `mock_${order.id}`,
       },
     });
   } catch (error) {
-    console.error('Create payment error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return handleRouteError(error);
   }
 }

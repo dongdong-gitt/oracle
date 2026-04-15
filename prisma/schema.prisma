@@ -222,7 +222,7 @@ model Report {
 
 model Payment {
   id              String        @id @default(cuid())
-  orderNo         String        @unique @default(cuid()) @map("order_no")
+  orderNo         String        @unique @map("order_no")
   userId          String        @map("user_id")
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -233,7 +233,7 @@ model Payment {
   status          PaymentStatus @default(PENDING)
 
   provider        String
-  providerOrderId String?       @map("provider_order_id")
+  providerOrderId String?       @unique @map("provider_order_id")
 
   membershipType  Membership?   @map("membership_type")
   readingId       String?       @map("reading_id")

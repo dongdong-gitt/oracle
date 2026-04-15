@@ -200,9 +200,23 @@ export const paymentDb = {
     provider: string;
     membershipType?: string;
   }) {
+    // 生成有意义的订单号
+    const now = new Date();
+    const dateStr = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+      String(now.getHours()).padStart(2, '0'),
+      String(now.getMinutes()).padStart(2, '0'),
+      String(now.getSeconds()).padStart(2, '0'),
+    ].join('');
+    const rand = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    const orderNo = `ORC${dateStr}${rand}`;
+
     return prisma.payment.create({
       data: {
         ...data,
+        orderNo,
         type: data.type as any,
         status: 'PENDING',
       },

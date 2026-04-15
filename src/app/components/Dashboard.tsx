@@ -151,31 +151,58 @@ function buildTenGodMetrics(detail: any, lang: Language): RadarMetric[] {
 }
 
 function EnergyRing({ score, size = 180 }: { score: number; size?: number }) {
-  const circumference = 2 * Math.PI * (size / 2 - 12);
+  const r = size / 2 - 14;
+  const circumference = 2 * Math.PI * r;
   const strokeDashoffset = circumference - (score / 100) * circumference;
-  const color = score >= 80 ? '#00D4FF' : score >= 60 ? '#B829F7' : score >= 40 ? '#FF2D92' : '#FF4444';
+  const gradId = `energy-grad-${size}`;
+  const glowId = `energy-glow-${size}`;
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="transform -rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={size / 2 - 12} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={10} />
+        <defs>
+          <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#06b6d4" />
+            <stop offset="50%" stopColor="#a855f7" />
+            <stop offset="100%" stopColor="#06b6d4" />
+          </linearGradient>
+          <filter id={glowId}>
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+        </defs>
+        {/* 背景轨道 */}
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={10} />
+        {/* 刻度标记 */}
+        {[0, 25, 50, 75].map((tick) => {
+          const angle = (tick / 100) * 360 - 90;
+          const rad = (angle * Math.PI) / 180;
+          const x1 = size / 2 + (r - 6) * Math.cos(rad);
+          const y1 = size / 2 + (r - 6) * Math.sin(rad);
+          const x2 = size / 2 + (r + 6) * Math.cos(rad);
+          const y2 = size / 2 + (r + 6) * Math.sin(rad);
+          return <line key={tick} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />;
+        })}
+        {/* 进度弧 */}
         <circle
           cx={size / 2}
           cy={size / 2}
-          r={size / 2 - 12}
+          r={r}
           fill="none"
-          stroke={color}
+          stroke={`url(#${gradId})`}
           strokeWidth={10}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
           className="transition-all duration-1000"
-          style={{ filter: `drop-shadow(0 0 15px ${color})` }}
+          filter={`url(#${glowId})`}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-4xl font-bold" style={{ color }}>{score}</span>
-        <span className="text-xs text-white/40 mt-1">综合分</span>
+        <span className="text-4xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+          {score}
+        </span>
+        <span className="text-[10px] text-white/30 mt-1 tracking-wider uppercase">综合分</span>
       </div>
     </div>
   );
@@ -248,12 +275,17 @@ function CycleTicker({ lang }: { lang: Language }) {
   ];
 
   return (
-    <div className="fixed top-16 left-0 right-0 h-10 bg-[#0D0D0D]/95 backdrop-blur-xl border-b border-white/5 z-40 overflow-hidden">
-      <motion.div className="flex items-center gap-8 px-6 h-full" animate={{ x: [0, -400] }} transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}>
+    <div className="fixed top-16 left-0 right-0 h-10 bg-[#0D0D0D]/95 backdrop-blur-xl border-b border-white/[0.04] z-40 overflow-hidden">
+      <motion.div className="flex items-center gap-10 px-6 h-full" animate={{ x: [0, -500] }} transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}>
         {[...items, ...items].map((item, i) => (
-          <div key={i} className="flex items-center gap-2 whitespace-nowrap">
-            <span className="text-white/30 text-xs">{item.label}</span>
+          <div key={i} className="flex items-center gap-2.5 whitespace-nowrap">
+            <span className="text-white/25 text-xs font-medium tracking-wider">{item.label}</span>
             <span className={`font-mono font-bold text-sm ${item.up ? 'text-emerald-400' : 'text-rose-400'}`}>{item.value}</span>
+            {item.up ? (
+              <span className="text-emerald-500/60 text-[10px]">&#9650;</span>
+            ) : (
+              <span className="text-rose-500/60 text-[10px]">&#9660;</span>
+            )}
           </div>
         ))}
       </motion.div>
@@ -342,20 +374,40 @@ function AskOracleInput({ lang, onAsk }: { lang: Language; onAsk: (q: string) =>
   };
 
   return (
-    <form onSubmit={handleSubmit} className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#0D0D0D] via-[#0D0D0D] to-transparent z-50">
+    <form onSubmit={handleSubmit} className="fixed bottom-0 left-0 right-0 p-4 z-50" style={{ background: 'linear-gradient(to top, #0D0D0D, #0D0D0D 60%, transparent)' }}>
       <div className="max-w-3xl mx-auto relative">
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 text-white/30 pointer-events-none">
-          <Sparkles className="w-5 h-5" />
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 text-white/20 pointer-events-none">
+          <Sparkles className="w-4 h-4" />
           <span className="text-sm">{t('askOracle', lang)}</span>
         </div>
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full pl-36 pr-14 py-4 bg-[#1A1B1E] border border-white/10 rounded-2xl text-white focus:outline-none focus:border-neon-blue/50 transition-colors"
+          className="w-full pl-36 pr-14 py-4 rounded-2xl text-white text-sm focus:outline-none transition-all duration-300"
+          style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            boxShadow: '0 -4px 30px rgba(0,0,0,0.2)',
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(6,182,212,0.3)';
+            e.currentTarget.style.boxShadow = '0 -4px 30px rgba(0,0,0,0.2), 0 0 20px rgba(6,182,212,0.05)';
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+            e.currentTarget.style.boxShadow = '0 -4px 30px rgba(0,0,0,0.2)';
+          }}
         />
-        <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-gradient-to-r from-neon-blue to-neon-purple rounded-xl text-white hover:opacity-90 transition-opacity">
-          <Send className="w-5 h-5" />
+        <button
+          type="submit"
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-xl text-white hover:opacity-90 transition-all active:scale-95"
+          style={{
+            background: 'linear-gradient(135deg, #06b6d4, #a855f7)',
+            boxShadow: '0 4px 12px rgba(6,182,212,0.25)',
+          }}
+        >
+          <Send className="w-4 h-4" />
         </button>
       </div>
     </form>
@@ -541,27 +593,33 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#0D0D0D] text-white font-sans">
-      <header className="fixed top-0 left-0 right-0 h-16 bg-[#0D0D0D]/90 backdrop-blur-xl border-b border-white/5 z-50">
+      <header className="fixed top-0 left-0 right-0 h-16 bg-[#0D0D0D]/80 backdrop-blur-2xl border-b border-white/[0.04] z-50">
         <div className="h-full flex items-center justify-between px-6">
           <div className="flex items-center gap-4">
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-white/5 rounded-full transition-colors">
-              <Menu className="w-5 h-5 text-white/60" />
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-white/5 rounded-xl transition-all duration-200 active:scale-95">
+              <Menu className="w-5 h-5 text-white/50" />
             </button>
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-neon-blue to-neon-purple flex items-center justify-center">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, #06b6d4, #a855f7)',
+                  boxShadow: '0 4px 15px rgba(6,182,212,0.25)',
+                }}
+              >
                 <Compass className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-lg tracking-tight">ORACLE</span>
+              <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">ORACLE</span>
             </div>
           </div>
 
           {activeTab === 'dashboard' && (
-            <div className="hidden md:flex items-center gap-1 bg-white/5 rounded-full p-1">
+            <div className="hidden md:flex items-center gap-1 rounded-2xl p-1" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
               {periods.map((p) => (
                 <button
                   key={p}
                   onClick={() => setActivePeriod(p)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${activePeriod === p ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'}`}
+                  className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 ${activePeriod === p ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-white border border-cyan-500/20' : 'text-white/30 hover:text-white/60'}`}
                 >
                   {p}
                 </button>
@@ -569,19 +627,27 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <StatusBadge phase={statusPhase} lang={lang} />
-            <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors text-sm">
+            <button
+              onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all duration-200 text-sm text-white/50 hover:text-white/80"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
+            >
               <Globe className="w-4 h-4" />
               <span>{lang === 'zh' ? '中文' : 'EN'}</span>
             </button>
-            <button className="p-2 hover:bg-white/5 rounded-full transition-colors relative">
-              <Bell className="w-5 h-5 text-white/60" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-neon-pink rounded-full"></span>
+            <button
+              className="p-2.5 rounded-xl transition-all duration-200 relative"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
+            >
+              <Bell className="w-4 h-4 text-white/40" />
+              <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-cyan-400 rounded-full" style={{ boxShadow: '0 0 6px rgba(6,182,212,0.6)' }} />
             </button>
             <button
               onClick={clearData}
-              className="flex items-center gap-2 px-3 py-2 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors text-sm"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 text-sm text-red-400/70 hover:text-red-400"
+              style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.1)' }}
               title={lang === 'zh' ? '退出登录' : 'Logout'}
             >
               <LogOut className="w-4 h-4" />
@@ -597,80 +663,117 @@ export default function Dashboard() {
         {sidebarOpen && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSidebarOpen(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" />
-            <motion.aside initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }} className="fixed left-0 top-16 bottom-0 w-[280px] bg-[#0D0D0D]/95 backdrop-blur-xl border-r border-white/5 z-50 overflow-y-auto">
+            <motion.aside initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="fixed left-0 top-16 bottom-0 w-[280px] bg-[#0a0a0f]/95 backdrop-blur-2xl border-r border-white/[0.04] z-50 overflow-y-auto">
               <div className="p-5">
-                <div className="p-4 rounded-2xl bg-[#1A1B1E] border border-white/5 mb-4">
+                {/* 用户卡片 */}
+                <div
+                  className="p-5 rounded-2xl mb-5"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                  }}
+                >
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-neon-blue to-neon-purple flex items-center justify-center text-lg font-bold">{userAvatar}</div>
+                    <div
+                      className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold text-white"
+                      style={{
+                        background: 'linear-gradient(135deg, #06b6d4, #a855f7)',
+                        boxShadow: '0 4px 15px rgba(6,182,212,0.25)',
+                      }}
+                    >
+                      {userAvatar}
+                    </div>
                     <div>
-                      <div className="font-semibold">{userName}</div>
-                      <div className="text-xs text-white/40">{riZhuText}</div>
+                      <div className="font-semibold text-white">{userName}</div>
+                      <div className="text-xs text-white/30 mt-0.5">{riZhuText}</div>
                     </div>
                   </div>
 
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-white/40">{pickText(lang, '今日运势', 'Today score')}</span>
+                      <span className="text-white/35">{pickText(lang, '今日运势', 'Today score')}</span>
                       <div className="flex items-center gap-2">
-                        <div className="flex gap-0.5">
+                        <div className="flex gap-1">
                           {[1, 2, 3, 4, 5].map(i => (
-                            <div key={i} className={`w-2 h-2 rounded-full ${i <= fortuneLevel ? 'bg-amber-400' : 'bg-white/20'}`} />
+                            <div
+                              key={i}
+                              className="w-1.5 h-1.5 rounded-full transition-all"
+                              style={{
+                                background: i <= fortuneLevel
+                                  ? 'linear-gradient(135deg, #06b6d4, #a855f7)'
+                                  : 'rgba(255,255,255,0.1)',
+                                boxShadow: i <= fortuneLevel ? '0 0 6px rgba(6,182,212,0.4)' : 'none',
+                              }}
+                            />
                           ))}
                         </div>
-                        <span className="font-mono text-amber-400">{fortuneText}</span>
+                        <span className="font-mono text-sm bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent font-bold">{fortuneText}</span>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="p-2 rounded-xl bg-white/5 border border-white/5">
-                        <div className="text-white/35 mb-1">{pickText(lang, '事业', 'Career')}</div>
-                        <div className="text-white/80 font-semibold">{scores.career}</div>
-                      </div>
-                      <div className="p-2 rounded-xl bg-white/5 border border-white/5">
-                        <div className="text-white/35 mb-1">{pickText(lang, '财运', 'Wealth')}</div>
-                        <div className="text-white/80 font-semibold">{scores.wealth}</div>
-                      </div>
-                      <div className="p-2 rounded-xl bg-white/5 border border-white/5">
-                        <div className="text-white/35 mb-1">{pickText(lang, '关系', 'Love')}</div>
-                        <div className="text-white/80 font-semibold">{scores.love}</div>
-                      </div>
-                      <div className="p-2 rounded-xl bg-white/5 border border-white/5">
-                        <div className="text-white/35 mb-1">{pickText(lang, '精力', 'Health')}</div>
-                        <div className="text-white/80 font-semibold">{scores.health}</div>
-                      </div>
+                      {[
+                        { label: pickText(lang, '事业', 'Career'), value: scores.career, color: '#06b6d4' },
+                        { label: pickText(lang, '财运', 'Wealth'), value: scores.wealth, color: '#a855f7' },
+                        { label: pickText(lang, '关系', 'Love'), value: scores.love, color: '#ec4899' },
+                        { label: pickText(lang, '精力', 'Health'), value: scores.health, color: '#10b981' },
+                      ].map((item) => (
+                        <div
+                          key={item.label}
+                          className="p-2.5 rounded-xl"
+                          style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}
+                        >
+                          <div className="text-white/25 mb-1">{item.label}</div>
+                          <div className="font-semibold" style={{ color: item.color }}>{item.value}</div>
+                        </div>
+                      ))}
                     </div>
 
-                    <div className="pt-2 border-t border-white/5 text-xs flex items-center justify-between">
-                      <span className="text-white/40">{pickText(lang, '当前阶段', 'Current phase')}</span>
-                      <span className="text-amber-400">{personalMode}</span>
+                    <div className="pt-2 border-t border-white/[0.04] text-xs flex items-center justify-between">
+                      <span className="text-white/30">{pickText(lang, '当前阶段', 'Current phase')}</span>
+                      <span className="text-cyan-400 font-medium">{personalMode}</span>
                     </div>
                   </div>
                 </div>
 
-                <nav className="space-y-4">
+                <nav className="space-y-5">
                   {menuGroups.map((group) => {
                     const GroupIcon = group.icon;
                     const isGroupActive = group.items.some(item => item.id === activeTab);
                     return (
                       <div key={group.title} className="space-y-1">
-                        <div className={`flex items-center gap-3 px-4 py-2 rounded-xl ${isGroupActive ? 'bg-white/5' : ''}`}>
-                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${group.color} flex items-center justify-center`}>
-                            <GroupIcon className="w-4 h-4 text-white" />
+                        <div className={`flex items-center gap-3 px-3 py-2 rounded-xl ${isGroupActive ? 'bg-white/[0.03]' : ''}`}>
+                          <div
+                            className="w-7 h-7 rounded-lg flex items-center justify-center"
+                            style={{
+                              background: `linear-gradient(135deg, ${group.color.includes('neon-blue') ? '#06b6d4' : group.color.includes('amber') ? '#f59e0b' : '#06b6d4'}20, ${group.color.includes('neon-purple') ? '#a855f7' : group.color.includes('orange') ? '#f97316' : '#3b82f6'}20)`,
+                            }}
+                          >
+                            <GroupIcon className="w-3.5 h-3.5 text-white/60" />
                           </div>
-                          <span className="font-semibold text-sm text-white/80">{group.title}</span>
+                          <span className="font-medium text-xs text-white/50 tracking-wider uppercase">{group.title}</span>
                         </div>
-                        <div className="pl-4 space-y-0.5">
+                        <div className="pl-3 space-y-0.5">
                           {group.items.map((item) => {
                             const ItemIcon = item.icon;
+                            const isActive = activeTab === item.id;
                             return (
                               <button
                                 key={item.id}
                                 onClick={() => { setActiveTab(item.id as TabType); setSidebarOpen(false); }}
-                                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all text-sm ${activeTab === item.id ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-sm ${
+                                  isActive
+                                    ? 'text-white'
+                                    : 'text-white/35 hover:text-white/60 hover:bg-white/[0.03]'
+                                }`}
+                                style={isActive ? {
+                                  background: 'linear-gradient(135deg, rgba(6,182,212,0.1), rgba(168,85,247,0.08))',
+                                  border: '1px solid rgba(6,182,212,0.15)',
+                                } : undefined}
                               >
-                                <ItemIcon className="w-4 h-4" />
+                                <ItemIcon className={`w-4 h-4 ${isActive ? 'text-cyan-400' : ''}`} />
                                 <span>{item.label}</span>
-                                {activeTab === item.id && <ChevronRight className="w-4 h-4 ml-auto text-white/40" />}
+                                {isActive && <ChevronRight className="w-3.5 h-3.5 ml-auto text-cyan-400/50" />}
                               </button>
                             );
                           })}
@@ -680,12 +783,26 @@ export default function Dashboard() {
                   })}
                 </nav>
 
-                <div className="mt-6 p-4 rounded-2xl bg-gradient-to-br from-neon-blue/20 to-neon-purple/20 border border-neon-blue/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Download className="w-5 h-5 text-neon-blue" />
-                    <span className="font-semibold text-neon-blue">{t('downloadApp', lang)}</span>
+                <div
+                  className="mt-6 p-4 rounded-2xl"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(6,182,212,0.08), rgba(168,85,247,0.06))',
+                    border: '1px solid rgba(6,182,212,0.12)',
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <Download className="w-4 h-4 text-cyan-400" />
+                    <span className="font-medium text-sm text-cyan-300">{t('downloadApp', lang)}</span>
                   </div>
-                  <button className="w-full py-2.5 rounded-xl bg-white text-black font-semibold text-sm">iOS / Android</button>
+                  <button
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+                    style={{
+                      background: 'linear-gradient(135deg, #06b6d4, #a855f7)',
+                      boxShadow: '0 4px 15px rgba(6,182,212,0.2)',
+                    }}
+                  >
+                    iOS / Android
+                  </button>
                 </div>
               </div>
             </motion.aside>
@@ -701,9 +818,9 @@ export default function Dashboard() {
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6 py-4">
                   <div>
                     <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-3xl font-bold mb-2">
-                      <span className="bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink bg-clip-text text-transparent">{t('welcome', lang)}</span>
+                      <span className="bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">{t('welcome', lang)}</span>
                     </motion.h1>
-                    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="text-white/40">
+                    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="text-white/30 text-sm">
                       {t('subtitle', lang)}
                     </motion.p>
                   </div>
@@ -711,23 +828,43 @@ export default function Dashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="p-6 rounded-3xl bg-[#1A1B1E] border border-white/5">
-                    <div className="flex items-center justify-between gap-3 mb-4">
-                      <div className="flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-neon-blue" />
-                        <span className="font-semibold">{t('humanAssets', lang)}</span>
+                  {/* 人物能量中枢 */}
+                  <div
+                    className="p-6 rounded-3xl"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.2)' }}>
+                          <Activity className="w-4 h-4 text-cyan-400" />
+                        </div>
+                        <span className="font-semibold text-sm">{t('humanAssets', lang)}</span>
                       </div>
-                      <span className="text-xs px-3 py-1 rounded-full bg-neon-blue/10 text-neon-blue border border-neon-blue/20">{personalMode}</span>
+                      <span className="text-[10px] px-3 py-1 rounded-full font-medium text-cyan-300" style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)' }}>{personalMode}</span>
                     </div>
 
                     <div className="mb-6">
-                      <div className="flex items-center justify-between text-xs text-white/40 mb-2">
-                        <span>{pickText(lang, '近 7 次势能曲线', 'Recent 7-point momentum')}</span>
-                        <span>{Math.round(averageRecent)} / 100</span>
+                      <div className="flex items-center justify-between text-xs text-white/30 mb-3">
+                        <span className="tracking-wider">{pickText(lang, '近 7 次势能曲线', 'Recent 7-point momentum')}</span>
+                        <span className="font-mono text-cyan-400/60">{Math.round(averageRecent)} / 100</span>
                       </div>
-                      <div className="h-20 flex items-end gap-1.5">
+                      <div className="h-20 flex items-end gap-2">
                         {energyBars.map((h, i) => (
-                          <div key={i} className="flex-1 bg-gradient-to-t from-neon-blue/40 via-neon-blue/60 to-cyan-300 rounded-t-xl transition-all" style={{ height: `${h}%` }} />
+                          <motion.div
+                            key={i}
+                            initial={{ height: 0 }}
+                            animate={{ height: `${h}%` }}
+                            transition={{ delay: i * 0.05, duration: 0.5, ease: 'easeOut' }}
+                            className="flex-1 rounded-t-lg"
+                            style={{
+                              background: `linear-gradient(to top, rgba(6,182,212,0.3), rgba(168,85,247,0.5), rgba(6,182,212,0.7))`,
+                              boxShadow: '0 -4px 12px rgba(6,182,212,0.1)',
+                            }}
+                          />
                         ))}
                       </div>
                     </div>
@@ -741,26 +878,42 @@ export default function Dashboard() {
                     </div>
 
                     <div className="space-y-3">
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-                        <div className="text-xs text-white/40 mb-1">{pickText(lang, '当前建议', 'Current guidance')}</div>
-                        <div className="text-sm text-white/80">{personalFocus}</div>
+                      <div
+                        className="p-4 rounded-xl"
+                        style={{ background: 'rgba(6,182,212,0.04)', border: '1px solid rgba(6,182,212,0.08)' }}
+                      >
+                        <div className="text-[10px] text-cyan-400/50 mb-1.5 tracking-wider uppercase">{pickText(lang, '当前建议', 'Current guidance')}</div>
+                        <div className="text-sm text-white/70 leading-relaxed">{personalFocus}</div>
                       </div>
-                      <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20">
-                        <div className="flex items-center gap-2 text-rose-400 text-sm">
-                          <AlertTriangle className="w-4 h-4" />
-                          <span>{personalWarning}</span>
+                      <div
+                        className="p-4 rounded-xl"
+                        style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.1)' }}
+                      >
+                        <div className="flex items-center gap-2 text-sm text-rose-300/80">
+                          <AlertTriangle className="w-4 h-4 text-rose-400/60" />
+                          <span className="leading-relaxed">{personalWarning}</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="p-6 rounded-3xl bg-[#1A1B1E] border border-white/5">
-                    <div className="flex items-center justify-between gap-3 mb-4">
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="w-5 h-5 text-neon-purple" />
-                        <span className="font-semibold">{t('strategicEngine', lang)}</span>
+                  {/* 商业战略引擎 */}
+                  <div
+                    className="p-6 rounded-3xl"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.2)' }}>
+                          <Briefcase className="w-4 h-4 text-purple-400" />
+                        </div>
+                        <span className="font-semibold text-sm">{t('strategicEngine', lang)}</span>
                       </div>
-                      <span className="text-xs px-3 py-1 rounded-full bg-neon-purple/10 text-neon-purple border border-neon-purple/20">{strategyMode}</span>
+                      <span className="text-[10px] px-3 py-1 rounded-full font-medium text-purple-300" style={{ background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.2)' }}>{strategyMode}</span>
                     </div>
 
                     <div className="mb-6">
@@ -778,27 +931,43 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-gradient-to-br from-neon-purple/10 to-neon-blue/10 border border-neon-purple/20 space-y-3">
+                    <div
+                      className="p-4 rounded-2xl space-y-3"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(168,85,247,0.06), rgba(6,182,212,0.04))',
+                        border: '1px solid rgba(168,85,247,0.12)',
+                      }}
+                    >
                       <div className="flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-neon-purple" />
-                        <span className="text-sm font-medium text-neon-purple">{t('instantDecision', lang)}</span>
+                        <Zap className="w-4 h-4 text-purple-400" />
+                        <span className="text-sm font-medium text-purple-300">{t('instantDecision', lang)}</span>
                       </div>
-                      <p className="text-sm text-white/70">{strategyDecision}</p>
-                      <ul className="space-y-2 text-sm text-white/60">
+                      <p className="text-sm text-white/60 leading-relaxed">{strategyDecision}</p>
+                      <ul className="space-y-2 text-sm text-white/50">
                         {strategyActions.map((item, index) => (
-                          <li key={index} className="flex gap-2"><span className="text-neon-purple">•</span><span>{item}</span></li>
+                          <li key={index} className="flex gap-2"><span className="text-purple-400/60">•</span><span>{item}</span></li>
                         ))}
                       </ul>
                     </div>
                   </div>
 
-                  <div className="p-6 rounded-3xl bg-[#1A1B1E] border border-white/5">
-                    <div className="flex items-center justify-between gap-3 mb-4">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-neon-cyan" />
-                        <span className="font-semibold">{t('financialRadar', lang)}</span>
+                  {/* 金融雷达 */}
+                  <div
+                    className="p-6 rounded-3xl"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                          <TrendingUp className="w-4 h-4 text-emerald-400" />
+                        </div>
+                        <span className="font-semibold text-sm">{t('financialRadar', lang)}</span>
                       </div>
-                      <span className="text-xs px-3 py-1 rounded-full bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/20">{riskBias}</span>
+                      <span className="text-[10px] px-3 py-1 rounded-full font-medium text-emerald-300" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}>{riskBias}</span>
                     </div>
 
                     <div className="mb-6">
@@ -824,23 +993,29 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-gradient-to-br from-neon-cyan/10 to-neon-blue/10 border border-neon-cyan/20 space-y-3">
+                    <div
+                      className="p-4 rounded-2xl space-y-3"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(16,185,129,0.05), rgba(6,182,212,0.04))',
+                        border: '1px solid rgba(16,185,129,0.1)',
+                      }}
+                    >
                       <div className="flex items-center gap-2 mb-1">
-                        <Clock className="w-4 h-4 text-neon-cyan" />
-                        <span className="text-sm font-medium text-neon-cyan">{pickText(lang, '执行节奏', 'Execution rhythm')}</span>
+                        <Clock className="w-4 h-4 text-emerald-400" />
+                        <span className="text-sm font-medium text-emerald-300">{pickText(lang, '执行节奏', 'Execution rhythm')}</span>
                       </div>
-                      <div className="space-y-2 text-sm">
+                      <div className="space-y-2.5 text-sm">
                         <div>
-                          <div className="text-xs text-white/40">{pickText(lang, '主动作', 'Main action')}</div>
-                          <div className="text-white/80">{executionWindow}</div>
+                          <div className="text-[10px] text-white/25 tracking-wider uppercase mb-0.5">{pickText(lang, '主动作', 'Main action')}</div>
+                          <div className="text-white/65">{executionWindow}</div>
                         </div>
                         <div>
-                          <div className="text-xs text-white/40">{pickText(lang, '风控线', 'Risk line')}</div>
-                          <div className="text-white/80">{riskLine}</div>
+                          <div className="text-[10px] text-white/25 tracking-wider uppercase mb-0.5">{pickText(lang, '风控线', 'Risk line')}</div>
+                          <div className="text-white/65">{riskLine}</div>
                         </div>
                         <div>
-                          <div className="text-xs text-white/40">{pickText(lang, '观察窗', 'Watch window')}</div>
-                          <div className="text-white/80">{observationWindow}</div>
+                          <div className="text-[10px] text-white/25 tracking-wider uppercase mb-0.5">{pickText(lang, '观察窗', 'Watch window')}</div>
+                          <div className="text-white/65">{observationWindow}</div>
                         </div>
                       </div>
                     </div>
